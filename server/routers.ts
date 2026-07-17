@@ -15,6 +15,7 @@ import {
   getUserSettings,
   upsertUserSettings,
 } from "./db";
+import { generateLessonPlan } from "./lessonGenerator";
 
 export const appRouter = router({
   system: systemRouter,
@@ -80,6 +81,26 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         if (!ctx.user) throw new Error("Unauthorized");
         return deleteLessonPlan(input.id, ctx.user.id);
+      }),
+
+    generate: publicProcedure
+      .input(z.object({
+        title: z.string(),
+        subject: z.string(),
+        grade: z.string().optional(),
+        content: z.string().optional(),
+        language: z.enum(["ar", "en"]).default("ar"),
+        aiModel: z.enum(["gemini-1.5-flash", "gemini-1.5-pro"]).default("gemini-1.5-flash"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        try {
+          const generated = await generateLessonPlan(input);
+          return generated;
+        } catch (error) {
+          console.error("Generation error:", error);
+          throw new Error("Failed to generate lesson plan");
+        }
       }),
   }),
 
