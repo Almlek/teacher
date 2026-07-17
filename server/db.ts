@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, lessonPlans, libraryBooks, userSettings, InsertLessonPlan, InsertLibraryBook, InsertUserSettings } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,93 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Lesson Plans queries
+export async function createLessonPlan(plan: InsertLessonPlan) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(lessonPlans).values(plan);
+  return result;
+}
+
+export async function getLessonPlansByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(lessonPlans).where(eq(lessonPlans.userId, userId));
+}
+
+export async function getLessonPlanById(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(lessonPlans)
+    .where(and(eq(lessonPlans.id, id), eq(lessonPlans.userId, userId)))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateLessonPlan(id: number, userId: number, updates: Partial<InsertLessonPlan>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const updateObj: any = {};
+  Object.keys(updates).forEach(key => {
+    updateObj[key] = (updates as any)[key];
+  });
+  return await db
+    .update(lessonPlans)
+    .set(updateObj)
+    .where(and(eq(lessonPlans.id, id), eq(lessonPlans.userId, userId)));
+}
+
+export async function deleteLessonPlan(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db
+    .delete(lessonPlans)
+    .where(and(eq(lessonPlans.id, id), eq(lessonPlans.userId, userId)));
+}
+
+// Library Books queries
+export async function addLibraryBook(book: InsertLibraryBook) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(libraryBooks).values(book);
+}
+
+export async function getLibraryBooksByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(libraryBooks).where(eq(libraryBooks.userId, userId));
+}
+
+export async function deleteLibraryBook(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db
+    .delete(libraryBooks)
+    .where(and(eq(libraryBooks.id, id), eq(libraryBooks.userId, userId)));
+}
+
+// User Settings queries
+export async function getUserSettings(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertUserSettings(userId: number, settings: Partial<Omit<InsertUserSettings, 'userId'>>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getUserSettings(userId);
+  const settingsObj: any = {};
+  Object.keys(settings).forEach(key => {
+    settingsObj[key] = (settings as any)[key];
+  });
+  if (existing) {
+    return await db.update(userSettings).set(settingsObj).where(eq(userSettings.userId, userId));
+  } else {
+    const fullSettings: InsertUserSettings = { userId, ...settingsObj } as InsertUserSettings;
+    return await db.insert(userSettings).values(fullSettings);
+  }
+}
