@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
-import { ArrowRight, Download, Copy, Loader2 } from "lucide-react";
+import { ArrowRight, Download, Copy, Loader2, FileText } from "lucide-react";
 import { useLocation, useRoute } from "wouter";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ export default function LessonDetail() {
   const [, setLocation] = useLocation();
   const [, params] = useRoute("/lessons/:id");
   const [isCopied, setIsCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const lessonId = params?.id ? parseInt(params.id) : null;
   const lessonQuery = trpc.lessons.get.useQuery(
@@ -60,7 +61,7 @@ export default function LessonDetail() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownloadText = () => {
     if (lesson.content) {
       const element = document.createElement("a");
       const file = new Blob([lesson.content], { type: "text/plain" });
@@ -70,6 +71,123 @@ export default function LessonDetail() {
       element.click();
       document.body.removeChild(element);
       toast.success("تم تحميل الملف");
+    }
+  };
+
+  const handleExportHTML = async () => {
+    setIsExporting(true);
+    try {
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html dir="rtl" lang="ar">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${lesson.title}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: 'Cairo', 'Arial', sans-serif; 
+              padding: 40px; 
+              direction: rtl; 
+              background: #f9fafb;
+              color: #1f2937;
+              line-height: 1.8;
+            }
+            .container { max-width: 900px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+            h1 { color: #7c3aed; margin-bottom: 20px; font-size: 2.5em; border-bottom: 3px solid #7c3aed; padding-bottom: 15px; }
+            .info { background: linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%); padding: 20px; border-radius: 8px; margin: 30px 0; border-right: 4px solid #7c3aed; }
+            .info p { margin: 10px 0; }
+            .info strong { color: #7c3aed; }
+            .section { margin: 40px 0; }
+            .section h2 { color: #7c3aed; font-size: 1.8em; border-bottom: 2px solid #7c3aed; padding-bottom: 10px; margin-bottom: 20px; }
+            .section p { margin: 15px 0; }
+            .section ul, .section ol { margin: 15px 0 15px 30px; }
+            .section li { margin: 8px 0; }
+            .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 0.9em; }
+            @media print {
+              body { background: white; }
+              .container { box-shadow: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>${lesson.title}</h1>
+            <div class="info">
+              <p><strong>المادة:</strong> ${lesson.subject}</p>
+              ${lesson.grade ? `<p><strong>الصف:</strong> ${lesson.grade}</p>` : ""}
+              ${lesson.teacher ? `<p><strong>المعلم:</strong> ${lesson.teacher}</p>` : ""}
+              ${lesson.school ? `<p><strong>المدرسة:</strong> ${lesson.school}</p>` : ""}
+              ${lesson.date ? `<p><strong>التاريخ:</strong> ${lesson.date}</p>` : ""}
+            </div>
+            
+            ${
+              lesson.content
+                ? `
+              <div class="section">
+                <h2>محتوى الدرس</h2>
+                <div>${lesson.content
+                  .split("\n")
+                  .map((line) => `<p>${line}</p>`)
+                  .join("")}</div>
+              </div>
+            `
+                : ""
+            }
+            
+            ${
+              lesson.boardContent
+                ? `
+              <div class="section">
+                <h2>السبورة الذكية</h2>
+                <div>${lesson.boardContent
+                  .split("\n")
+                  .map((line) => `<p>${line}</p>`)
+                  .join("")}</div>
+              </div>
+            `
+                : ""
+            }
+            
+            ${
+              lesson.summaryContent
+                ? `
+              <div class="section">
+                <h2>الملخص التفاعلي</h2>
+                <div>${lesson.summaryContent
+                  .split("\n")
+                  .map((line) => `<p>${line}</p>`)
+                  .join("")}</div>
+              </div>
+            `
+                : ""
+            }
+            
+            <div class="footer">
+              <p>تم إنشاء هذه الخطة باستخدام دفتر التحضير الذكي</p>
+              <p>${new Date().toLocaleDateString("ar-EG")}</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${lesson.title}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("تم تصدير الملف بنجاح");
+    } catch (error) {
+      console.error(error);
+      toast.error("حدث خطأ في التصدير");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -104,11 +222,21 @@ export default function LessonDetail() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleDownload}
+              onClick={handleDownloadText}
               className="gap-2"
             >
               <Download className="w-4 h-4" />
-              تحميل
+              نص
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportHTML}
+              disabled={isExporting}
+              className="gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              {isExporting ? "جاري..." : "HTML"}
             </Button>
           </div>
         </div>

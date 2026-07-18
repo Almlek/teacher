@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ export default function NewLesson() {
   const { user, isAuthenticated } = useAuth({ redirectOnUnauthenticated: true });
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
+  const [step, setStep] = useState<"form" | "generating" | "complete">("form");
 
   const [formData, setFormData] = useState({
     school: "",
@@ -31,16 +32,48 @@ export default function NewLesson() {
     content: "",
   });
 
-  const createLessonMutation = trpc.lessons.create.useMutation({
-    onSuccess: () => {
-      toast.success("تم إنشاء الخطة بنجاح!");
-      setLocation("/lessons");
+  const generateMutation = trpc.lessons.generate.useMutation({
+    onSuccess: (generated) => {
+      toast.success("تم توليد الخطة بنجاح!");
+      setStep("complete");
+      
+      // Save the generated content
+      createLessonMutation.mutate({
+        ...formData,
+        content: generated.content,
+        boardContent: generated.boardContent,
+        summaryContent: generated.summaryContent,
+      });
     },
     onError: (error) => {
-      toast.error("حدث خطأ: " + error.message);
+      toast.error("حدث خطأ في التوليد: " + error.message);
       setIsLoading(false);
+      setStep("form");
     },
   });
+
+  const createLessonMutation = trpc.lessons.create.useMutation({
+    onSuccess: () => {
+      toast.success("تم حفظ الخطة بنجاح!");
+      setTimeout(() => {
+        setLocation("/lessons");
+      }, 1000);
+    },
+    onError: (error) => {
+      toast.error("حدث خطأ في الحفظ: " + error.message);
+      setIsLoading(false);
+      setStep("form");
+    },
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,27 +85,48 @@ export default function NewLesson() {
       return;
     }
 
+    setStep("generating");
     try {
-      await createLessonMutation.mutateAsync({
-        ...formData,
+      await generateMutation.mutateAsync({
+        title: formData.title,
+        subject: formData.subject,
+        grade: formData.grade || undefined,
         content: formData.content || undefined,
+        language: formData.language as "ar" | "en",
+        aiModel: formData.aiModel as "gemini-1.5-flash" | "gemini-1.5-pro",
       });
     } catch (error) {
       console.error(error);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
   if (!isAuthenticated) {
     return null;
+  }
+
+  if (step === "generating") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="inline-block mb-6">
+            <div className="relative w-24 h-24">
+              <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin"></div>
+              <Sparkles className="w-12 h-12 text-primary absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold mb-2">جاري توليد الخطة...</h2>
+          <p className="text-muted-foreground mb-4">
+            نحن نستخدم الذكاء الاصطناعي لإنشاء خطة درس شاملة ومتكاملة
+          </p>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>✓ توليد محتوى الدرس</p>
+            <p>✓ إنشاء السبورة الذكية</p>
+            <p>✓ تحضير الملخص التفاعلي</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -84,6 +138,7 @@ export default function NewLesson() {
             variant="ghost"
             size="icon"
             onClick={() => setLocation("/")}
+            disabled={isLoading}
           >
             <ArrowRight className="w-5 h-5" />
           </Button>
@@ -111,6 +166,7 @@ export default function NewLesson() {
                       value={formData.school}
                       onChange={handleChange}
                       placeholder="اسم المدرسة"
+                      disabled={isLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -121,6 +177,7 @@ export default function NewLesson() {
                       value={formData.teacher}
                       onChange={handleChange}
                       placeholder="اسم المعلم"
+                      disabled={isLoading}
                     />
                   </div>
                 </div>
@@ -135,6 +192,7 @@ export default function NewLesson() {
                       onChange={handleChange}
                       placeholder="اللغة العربية، الرياضيات، إلخ"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -145,6 +203,7 @@ export default function NewLesson() {
                       value={formData.grade}
                       onChange={handleChange}
                       placeholder="الصف الأول، الثاني، إلخ"
+                      disabled={isLoading}
                     />
                   </div>
                 </div>
@@ -158,6 +217,7 @@ export default function NewLesson() {
                       value={formData.section}
                       onChange={handleChange}
                       placeholder="أ، ب، ج"
+                      disabled={isLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -168,6 +228,7 @@ export default function NewLesson() {
                       type="date"
                       value={formData.date}
                       onChange={handleChange}
+                      disabled={isLoading}
                     />
                   </div>
                 </div>
@@ -180,6 +241,7 @@ export default function NewLesson() {
                     value={formData.period}
                     onChange={handleChange}
                     placeholder="الحصة الأولى، الثانية، إلخ"
+                    disabled={isLoading}
                   />
                 </div>
               </CardContent>
@@ -201,6 +263,7 @@ export default function NewLesson() {
                     onChange={handleChange}
                     placeholder="مثال: الأفعال الماضية"
                     required
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -213,6 +276,7 @@ export default function NewLesson() {
                     onChange={handleChange}
                     placeholder="أدخل محتوى الدرس أو اتركه فارغاً لاستخدام العنوان فقط"
                     rows={6}
+                    disabled={isLoading}
                   />
                 </div>
               </CardContent>
@@ -228,7 +292,11 @@ export default function NewLesson() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="language">اللغة</Label>
-                    <Select value={formData.language} onValueChange={(value) => handleSelectChange("language", value)}>
+                    <Select 
+                      value={formData.language} 
+                      onValueChange={(value) => handleSelectChange("language", value)}
+                      disabled={isLoading}
+                    >
                       <SelectTrigger id="language">
                         <SelectValue />
                       </SelectTrigger>
@@ -241,7 +309,11 @@ export default function NewLesson() {
 
                   <div className="space-y-2">
                     <Label htmlFor="aiModel">نموذج الذكاء الاصطناعي</Label>
-                    <Select value={formData.aiModel} onValueChange={(value) => handleSelectChange("aiModel", value)}>
+                    <Select 
+                      value={formData.aiModel} 
+                      onValueChange={(value) => handleSelectChange("aiModel", value)}
+                      disabled={isLoading}
+                    >
                       <SelectTrigger id="aiModel">
                         <SelectValue />
                       </SelectTrigger>
@@ -255,7 +327,11 @@ export default function NewLesson() {
 
                 <div className="space-y-2">
                   <Label htmlFor="contentSource">مصدر المحتوى</Label>
-                  <Select value={formData.contentSource} onValueChange={(value) => handleSelectChange("contentSource", value)}>
+                  <Select 
+                    value={formData.contentSource} 
+                    onValueChange={(value) => handleSelectChange("contentSource", value)}
+                    disabled={isLoading}
+                  >
                     <SelectTrigger id="contentSource">
                       <SelectValue />
                     </SelectTrigger>
@@ -276,20 +352,25 @@ export default function NewLesson() {
                 type="button"
                 variant="outline"
                 onClick={() => setLocation("/")}
+                disabled={isLoading}
               >
                 إلغاء
               </Button>
               <Button
                 type="submit"
-                disabled={isLoading || createLessonMutation.isPending}
+                disabled={isLoading || generateMutation.isPending || createLessonMutation.isPending}
+                className="gap-2"
               >
-                {isLoading || createLessonMutation.isPending ? (
+                {isLoading || generateMutation.isPending || createLessonMutation.isPending ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin ml-2" />
-                    جاري الإنشاء...
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    جاري المعالجة...
                   </>
                 ) : (
-                  "إنشاء الخطة"
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    توليد وحفظ الخطة
+                  </>
                 )}
               </Button>
             </div>

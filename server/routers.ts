@@ -50,6 +50,8 @@ export const appRouter = router({
         contentSource: z.string().optional().default("title"),
         aiModel: z.string().optional().default("gemini-1.5-flash"),
         content: z.string().optional(),
+        boardContent: z.string().optional(),
+        summaryContent: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         if (!ctx.user) throw new Error("Unauthorized");
