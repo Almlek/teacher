@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { ArrowRight, Loader2, LogOut } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
+import PublicNav from "@/components/PublicNav";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -88,20 +89,8 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setLocation("/")}
-          >
-            <ArrowRight className="w-5 h-5" />
-          </Button>
-          <h1 className="text-2xl font-bold text-foreground">الإعدادات</h1>
-        </div>
-      </header>
+    <div className="min-h-screen bg-muted/20">
+      <PublicNav />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
