@@ -15,6 +15,13 @@
       "when": 1783726288131,
       "tag": "0001_loud_blonde_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1787005297847,
+      "tag": "0002_careful_living_mummy",
+      "breakpoints": true
     }
   ]
 }

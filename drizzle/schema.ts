@@ -66,6 +66,7 @@ export const libraryBooks = mysqlTable("library_books", {
   fileUrl: text("fileUrl"),
   fileKey: varchar("fileKey", { length: 500 }),
   fileSize: int("fileSize"),
+  fileType: varchar("fileType", { length: 100 }),
   subject: varchar("subject", { length: 255 }),
   grade: varchar("grade", { length: 100 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

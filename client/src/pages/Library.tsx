@@ -3,29 +3,55 @@ import PublicNav from "@/components/PublicNav";
 import LoadingState from "@/components/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
+import { getLibraryFileLabel, isSupportedLibraryType } from "@/lib/libraryUpload";
 import { BookOpen, Download, Eye, FileText, Plus, Search, Trash2, Upload } from "lucide-react";
-import { useLocation } from "wouter";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function Library() {
   const { isAuthenticated } = useAuth({ redirectOnUnauthenticated: true });
-  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("all");
-  const [previewBook, setPreviewBook] = useState<{ id: number; title: string; subject?: string | null; grade?: string | null; fileName?: string | null; fileUrl?: string | null; fileSize?: number | null } | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadForm, setUploadForm] = useState({ title: "", subject: "", grade: "" });
+  const [previewBook, setPreviewBook] = useState<{ id: number; title: string; subject?: string | null; grade?: string | null; fileName?: string | null; fileUrl?: string | null; fileSize?: number | null; fileType?: string | null } | null>(null);
 
+  const utils = trpc.useUtils();
   const libraryQuery = trpc.library.list.useQuery();
+
+  useEffect(() => {
+    if (!selectedFile) {
+      setPreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(selectedFile);
+    setPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedFile]);
   const deleteMutation = trpc.library.delete.useMutation({
     onSuccess: () => {
       toast.success("تم حذف الملف بنجاح");
-      libraryQuery.refetch();
+      void utils.library.list.invalidate();
     },
     onError: (error) => toast.error("حدث خطأ: " + error.message),
+  });
+
+  const uploadMutation = trpc.library.upload.useMutation({
+    onSuccess: async () => {
+      toast.success("تم رفع الملف وإضافته إلى المكتبة");
+      setUploadOpen(false);
+      setSelectedFile(null);
+      setUploadForm({ title: "", subject: "", grade: "" });
+      await utils.library.list.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
   });
 
   if (!isAuthenticated) return null;
@@ -48,6 +74,49 @@ export default function Library() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} ميجابايت`;
   };
 
+  const handleFileSelection = (file?: File) => {
+    if (!file) return;
+    if (!isSupportedLibraryType(file.type)) {
+      toast.error("الملف غير مدعوم. اختر PDF أو صورة بصيغة JPG أو PNG أو WEBP أو GIF.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("حجم الملف يجب ألا يتجاوز 10 ميجابايت.");
+      return;
+    }
+    setSelectedFile(file);
+    setUploadForm((previous) => ({
+      ...previous,
+      title: previous.title || file.name.replace(/\.[^/.]+$/, ""),
+    }));
+  };
+
+  const handleUpload = () => {
+    if (!selectedFile) {
+      toast.error("اختر ملفاً أولاً قبل الرفع.");
+      return;
+    }
+    if (!uploadForm.title.trim()) {
+      toast.error("أدخل عنواناً واضحاً للمرجع.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const fileData = result.split(",")[1] || "";
+      uploadMutation.mutate({
+        title: uploadForm.title.trim(),
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+        fileData,
+        subject: uploadForm.subject.trim() || undefined,
+        grade: uploadForm.grade.trim() || undefined,
+      });
+    };
+    reader.onerror = () => toast.error("تعذر قراءة الملف من الجهاز.");
+    reader.readAsDataURL(selectedFile);
+  };
+
   return (
     <div className="min-h-screen bg-muted/20">
       <PublicNav />
@@ -62,7 +131,7 @@ export default function Library() {
               احتفظ بمراجعك التعليمية قريبة منك، وعاينها أو حمّلها بسرعة عند إعداد أي درس جديد.
             </p>
           </div>
-          <Button onClick={() => setLocation("/library/upload")} className="gap-2 rounded-xl">
+          <Button onClick={() => setUploadOpen(true)} className="gap-2 rounded-xl">
             <Upload className="h-4 w-4" /> رفع ملف جديد
           </Button>
         </div>
@@ -100,7 +169,7 @@ export default function Library() {
             <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
             <h2 className="mt-5 text-xl font-extrabold">لا توجد ملفات مطابقة</h2>
             <p className="mt-2 text-muted-foreground">ارفع مرجعاً جديداً أو جرّب كلمة بحث أو تصنيفاً مختلفاً.</p>
-            <Button onClick={() => setLocation("/library/upload")} className="mt-6 gap-2 rounded-xl">
+            <Button onClick={() => setUploadOpen(true)} className="mt-6 gap-2 rounded-xl">
               <Plus className="h-4 w-4" /> إضافة أول ملف
             </Button>
           </div>
@@ -162,6 +231,50 @@ export default function Library() {
         )}
       </main>
 
+      <Dialog open={uploadOpen} onOpenChange={(open) => {
+        setUploadOpen(open);
+        if (!open && !uploadMutation.isPending) {
+          setSelectedFile(null);
+          setPreviewUrl(null);
+          setUploadForm({ title: "", subject: "", grade: "" });
+        }
+      }}>
+        <DialogContent className="max-w-lg rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">رفع مرجع تعليمي</DialogTitle>
+            <DialogDescription>أضف ملف PDF أو صورة بحجم أقصى 10 ميجابايت إلى مكتبتك الخاصة.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-3">
+            <div className="rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 p-5 text-center">
+              <Upload className="mx-auto h-9 w-9 text-primary" />
+              <p className="mt-3 text-sm font-semibold">اختر ملفاً من جهازك</p>
+              <p className="mt-1 text-xs text-muted-foreground">PDF أو JPG أو PNG أو WEBP أو GIF</p>
+              <Input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp,image/gif"
+                className="mx-auto mt-4 max-w-sm cursor-pointer rounded-xl bg-background"
+                onChange={(event) => handleFileSelection(event.target.files?.[0])}
+                disabled={uploadMutation.isPending}
+              />
+              {selectedFile && <div className="mt-3 space-y-1 text-sm text-primary"><p className="truncate">{selectedFile.name} • {formatFileSize(selectedFile.size)}</p><p className="text-xs font-semibold">نوع الملف: {getLibraryFileLabel(selectedFile.type)}</p></div>}
+              {selectedFile?.type.startsWith("image/") && previewUrl && <img src={previewUrl} alt="معاينة الملف" className="mx-auto mt-4 max-h-44 w-full rounded-xl border border-border object-contain bg-background" />}
+              {selectedFile?.type === "application/pdf" && previewUrl && <iframe src={previewUrl} title="معاينة ملف PDF" className="mt-4 h-48 w-full rounded-xl border border-border bg-background" />}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2"><Label htmlFor="upload-title">عنوان المرجع</Label><Input id="upload-title" value={uploadForm.title} onChange={(event) => setUploadForm((previous) => ({ ...previous, title: event.target.value }))} placeholder="مثال: كتاب الرياضيات للصف الأول" disabled={uploadMutation.isPending} /></div>
+              <div className="space-y-2"><Label htmlFor="upload-subject">المادة</Label><Input id="upload-subject" value={uploadForm.subject} onChange={(event) => setUploadForm((previous) => ({ ...previous, subject: event.target.value }))} placeholder="الرياضيات" disabled={uploadMutation.isPending} /></div>
+              <div className="space-y-2"><Label htmlFor="upload-grade">الصف</Label><Input id="upload-grade" value={uploadForm.grade} onChange={(event) => setUploadForm((previous) => ({ ...previous, grade: event.target.value }))} placeholder="الصف الأول" disabled={uploadMutation.isPending} /></div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setUploadOpen(false)} className="rounded-xl" disabled={uploadMutation.isPending}>إلغاء</Button>
+            <Button onClick={handleUpload} className="gap-2 rounded-xl" disabled={!selectedFile || uploadMutation.isPending}>
+              {uploadMutation.isPending ? "جاري الرفع..." : "رفع إلى المكتبة"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!previewBook} onOpenChange={() => setPreviewBook(null)}>
         <DialogContent className="max-w-xl rounded-3xl">
           <DialogHeader>
@@ -171,9 +284,12 @@ export default function Library() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-3">
+            {previewBook?.fileUrl && previewBook.fileType?.startsWith("image/") && <img src={previewBook.fileUrl} alt={previewBook.title} className="max-h-80 w-full rounded-2xl border border-border object-contain bg-muted/30" />}
+            {previewBook?.fileUrl && previewBook.fileType === "application/pdf" && <iframe src={previewBook.fileUrl} title={previewBook.title} className="h-80 w-full rounded-2xl border border-border bg-muted/30" />}
             <div className="rounded-2xl bg-muted/40 p-4 text-sm space-y-2">
               <p><strong>اسم الملف:</strong> {previewBook?.fileName || "غير محدد"}</p>
               <p><strong>الحجم:</strong> {formatFileSize(previewBook?.fileSize)}</p>
+              <p><strong>النوع:</strong> {getLibraryFileLabel(previewBook?.fileType)}</p>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               هذه معاينة سريعة لبيانات المرجع التعليمي المحفوظ في المكتبة. يمكنك تحميل الملف كاملاً للاستفادة منه أثناء التحضير.

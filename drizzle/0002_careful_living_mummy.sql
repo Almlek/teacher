@@ -1,0 +1,1 @@
+ALTER TABLE `library_books` ADD `fileType` varchar(100);

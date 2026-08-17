@@ -16,6 +16,8 @@ import {
   upsertUserSettings,
 } from "./db";
 import { generateLessonPlan } from "./lessonGenerator";
+import { storagePut } from "./storage";
+import { decodeAndValidateLibraryFile } from "./libraryUpload";
 
 export const appRouter = router({
   system: systemRouter,
@@ -119,6 +121,7 @@ export const appRouter = router({
         fileUrl: z.string().optional(),
         fileKey: z.string().optional(),
         fileSize: z.number().optional(),
+        fileType: z.string().optional(),
         subject: z.string().optional(),
         grade: z.string().optional(),
       }))
@@ -128,6 +131,34 @@ export const appRouter = router({
           userId: ctx.user.id,
           ...input,
         } as any);
+      }),
+
+    upload: publicProcedure
+      .input(z.object({
+        title: z.string().min(1).max(500),
+        fileName: z.string().min(1).max(500),
+        fileType: z.string().min(1),
+        fileData: z.string().min(1),
+        subject: z.string().max(255).optional(),
+        grade: z.string().max(100).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        const data = decodeAndValidateLibraryFile(input.fileData, input.fileType);
+
+        const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-180) || "resource";
+        const uploaded = await storagePut(`${ctx.user.id}-library/${safeName}`, data, input.fileType);
+        return addLibraryBook({
+          userId: ctx.user.id,
+          title: input.title,
+          fileName: input.fileName,
+          fileUrl: uploaded.url,
+          fileKey: uploaded.key,
+          fileSize: data.length,
+          fileType: input.fileType,
+          subject: input.subject,
+          grade: input.grade,
+        });
       }),
 
     delete: publicProcedure
