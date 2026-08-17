@@ -1,513 +1,142 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
+import PublicNav from "@/components/PublicNav";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, FileText, Settings, Archive, Plus, Zap, BarChart3, Users, CheckCircle, ArrowRight, Star } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { ArrowLeft, BookOpen, Check, FolderSearch, LayoutTemplate, Library, ShieldCheck, Sparkles, WandSparkles } from "lucide-react";
 import { Link } from "wouter";
 
+const capabilities = [
+  {
+    icon: WandSparkles,
+    title: "توليد ذكي منظم",
+    description: "أنشئ خطة متوازنة تشمل الأهداف والتمهيد والأنشطة والتقويم بلغة واضحة ومناسبة للصف.",
+    tone: "from-violet-500/15 to-fuchsia-500/10 text-violet-600",
+  },
+  {
+    icon: LayoutTemplate,
+    title: "قالب جاهز للتدريس",
+    description: "انتقل من فكرة الدرس إلى مستند مرتب يسهل مراجعته وتعديله وطباعته قبل الحصة.",
+    tone: "from-blue-500/15 to-cyan-500/10 text-blue-600",
+  },
+  {
+    icon: FolderSearch,
+    title: "أرشيف قابل للبحث",
+    description: "احتفظ بخططك السابقة في مساحة واحدة، ثم اعثر عليها حسب المادة أو الصف أو عنوان الدرس.",
+    tone: "from-emerald-500/15 to-teal-500/10 text-emerald-600",
+  },
+  {
+    icon: Library,
+    title: "مكتبة مصادر تعليمية",
+    description: "نظّم المراجع والملفات التي تعتمد عليها لتعود إليها عند إعداد درس جديد.",
+    tone: "from-amber-500/15 to-orange-500/10 text-amber-600",
+  },
+];
+
+const steps = [
+  { number: "01", title: "أدخل تفاصيل الدرس", description: "المادة والصف والعنوان والمدة وأي سياق تريد أن يعتمد عليه التوليد." },
+  { number: "02", title: "اختر أسلوب التوليد", description: "حدد اللغة والنموذج ومصدر المحتوى المناسب لطبيعة حصتك." },
+  { number: "03", title: "راجع خطتك وطورها", description: "احصل على مسودة واضحة ثم عدّلها أو احفظها أو صدّرها بالطريقة المناسبة." },
+];
+
 export default function Home() {
-  const { user, loading, isAuthenticated, logout } = useAuth();
+  const { user, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="mt-4 text-muted-foreground">جاري التحميل...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-        {/* Navigation */}
-        <nav className="border-b border-border/40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-white" />
-              </div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">دفتر التحضير الذكي</h1>
-            </div>
-            <Button onClick={startLogin} className="gap-2">
-              تسجيل الدخول
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </nav>
-
-        {/* Hero Section */}
-        <section className="container mx-auto px-4 py-20">
-          <div className="max-w-3xl mx-auto text-center mb-16">
-            <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 mb-6">
-              <Star className="w-4 h-4" />
-              <span className="text-sm font-medium">أداة التحضير الذكية للمعلمين</span>
-            </div>
-            <h2 className="text-5xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
-              خطط دروس احترافية في <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">ثوان</span>
-            </h2>
-            <p className="text-xl text-muted-foreground mb-8 leading-relaxed">
-              استخدم الذكاء الاصطناعي (Gemini) لإنشاء خطط دروس شاملة واحترافية. وفّر الوقت والجهد، وركز على التدريس الفعال.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button onClick={startLogin} size="lg" className="gap-2 h-12 text-base">
-                ابدأ مجاناً الآن
-                <ArrowRight className="w-5 h-5" />
-              </Button>
-              <Button variant="outline" size="lg" className="h-12 text-base">
-                شاهد العرض التوضيحي
-              </Button>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-primary mb-2">10K+</div>
-              <p className="text-muted-foreground">معلم يستخدم التطبيق</p>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-primary mb-2">50K+</div>
-              <p className="text-muted-foreground">خطة درس تم إنشاؤها</p>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-primary mb-2">4.9/5</div>
-              <p className="text-muted-foreground">تقييم المستخدمين</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section className="bg-white dark:bg-slate-900 py-20 border-t border-border">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-16">
-              <h3 className="text-4xl font-bold text-foreground mb-4">المميزات الرئيسية</h3>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                كل ما تحتاجه لإنشاء خطط دروس احترافية بسهولة
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {/* Feature 1 */}
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center mb-4">
-                    <Zap className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <CardTitle>توليد ذكي فوري</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    استخدم Gemini AI لإنشاء خطط دروس شاملة في ثوان بدلاً من ساعات
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Feature 2 */}
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/20 flex items-center justify-center mb-4">
-                    <BarChart3 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <CardTitle>محتوى متعدد الأشكال</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    احصل على الدرس الكامل، السبورة الذكية، والملخصات التفاعلية
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Feature 3 */}
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center mb-4">
-                    <Archive className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <CardTitle>أرشيف منظم</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    احفظ جميع خططك وابحث عنها بسهولة باستخدام البحث المتقدم
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Feature 4 */}
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center mb-4">
-                    <FileText className="w-6 h-6 text-green-600 dark:text-green-400" />
-                  </div>
-                  <CardTitle>تصدير احترافي</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    صدّر خططك بصيغ متعددة (PDF, Word, HTML) جاهزة للطباعة
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Feature 5 */}
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center mb-4">
-                    <Users className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <CardTitle>مكتبة مشتركة</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    شارك خططك مع زملائك واستفد من خطط المعلمين الآخرين
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Feature 6 */}
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-pink-500/20 to-rose-500/20 flex items-center justify-center mb-4">
-                    <Settings className="w-6 h-6 text-pink-600 dark:text-pink-400" />
-                  </div>
-                  <CardTitle>تخصيص كامل</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    اختر من ثيمات ملونة وخطوط عربية وحجوم نصوص مختلفة
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* Pricing Section */}
-        <section className="py-20 border-t border-border">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-16">
-              <h3 className="text-4xl font-bold text-foreground mb-4">خطط الاشتراك</h3>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                اختر الخطة المناسبة لاحتياجاتك
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              {/* Free Plan */}
-              <Card className="border-2 border-border">
-                <CardHeader>
-                  <CardTitle>مجاني</CardTitle>
-                  <CardDescription>للمعلمين الجدد</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-6">
-                    <span className="text-4xl font-bold">0</span>
-                    <span className="text-muted-foreground"> ر.س/شهر</span>
-                  </div>
-                  <ul className="space-y-3 mb-6">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>5 خطط دروس شهرياً</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>Gemini Flash فقط</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>أرشيف محدود</span>
-                    </li>
-                  </ul>
-                  <Button variant="outline" className="w-full">
-                    ابدأ الآن
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Pro Plan */}
-              <Card className="border-2 border-primary shadow-lg relative">
-                <div className="absolute -top-4 right-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                  الأكثر شهرة
-                </div>
-                <CardHeader>
-                  <CardTitle>احترافي</CardTitle>
-                  <CardDescription>للمعلمين النشطين</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-6">
-                    <span className="text-4xl font-bold">29</span>
-                    <span className="text-muted-foreground"> ر.س/شهر</span>
-                  </div>
-                  <ul className="space-y-3 mb-6">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>خطط دروس غير محدودة</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>Gemini Flash و Pro</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>أرشيف كامل</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>مكتبة مشتركة</span>
-                    </li>
-                  </ul>
-                  <Button onClick={startLogin} className="w-full gap-2">
-                    اشترك الآن
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Enterprise Plan */}
-              <Card className="border-2 border-border">
-                <CardHeader>
-                  <CardTitle>مؤسسي</CardTitle>
-                  <CardDescription>للمدارس والمؤسسات</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-6">
-                    <span className="text-4xl font-bold">99</span>
-                    <span className="text-muted-foreground">+ ر.س/شهر</span>
-                  </div>
-                  <ul className="space-y-3 mb-6">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>كل ميزات Pro</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>دعم فني أولوي</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>حسابات متعددة</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span>تقارير متقدمة</span>
-                    </li>
-                  </ul>
-                  <Button variant="outline" className="w-full">
-                    اتصل بنا
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="bg-gradient-to-r from-purple-600 to-blue-600 py-20">
-          <div className="container mx-auto px-4 text-center text-white">
-            <h3 className="text-4xl font-bold mb-4">جاهز لتحسين تحضيرك؟</h3>
-            <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-              انضم إلى آلاف المعلمين الذين يوفرون الوقت والجهد باستخدام دفتر التحضير الذكي
-            </p>
-            <Button onClick={startLogin} size="lg" variant="secondary" className="gap-2">
-              ابدأ مجاناً الآن
-              <ArrowRight className="w-5 h-5" />
-            </Button>
-          </div>
-        </section>
-
-        {/* Footer */}
-        <footer className="bg-card border-t border-border py-12">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-              <div>
-                <h4 className="font-semibold text-foreground mb-4">عن التطبيق</h4>
-                <p className="text-sm text-muted-foreground">
-                  أداة ذكية لإنشاء خطط دروس احترافية باستخدام الذكاء الاصطناعي
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold text-foreground mb-4">الروابط</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li><a href="#" className="hover:text-foreground transition">الميزات</a></li>
-                  <li><a href="#" className="hover:text-foreground transition">الأسعار</a></li>
-                  <li><a href="#" className="hover:text-foreground transition">المدونة</a></li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold text-foreground mb-4">القانوني</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li><a href="#" className="hover:text-foreground transition">سياسة الخصوصية</a></li>
-                  <li><a href="#" className="hover:text-foreground transition">شروط الاستخدام</a></li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold text-foreground mb-4">التواصل</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li><a href="mailto:support@smartplan.com" className="hover:text-foreground transition">البريد الإلكتروني</a></li>
-                  <li><a href="#" className="hover:text-foreground transition">تويتر</a></li>
-                </ul>
-              </div>
-            </div>
-            <div className="border-t border-border pt-8 text-center text-sm text-muted-foreground">
-              <p>&copy; 2026 دفتر التحضير الذكي. جميع الحقوق محفوظة.</p>
-            </div>
-          </div>
-        </footer>
-      </div>
-    );
-  }
-
-  // Authenticated user dashboard
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-primary-foreground" />
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
+      <PublicNav />
+
+      <main>
+        <section className="relative isolate overflow-hidden border-b border-border/60 bg-[radial-gradient(circle_at_12%_14%,hsl(var(--primary)/0.16),transparent_30%),radial-gradient(circle_at_90%_0%,hsl(205_90%_60%/0.14),transparent_30%),linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.16))]">
+          <div className="pointer-events-none absolute -left-24 top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+          <div className="pointer-events-none absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="container grid gap-14 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24">
+            <div className="relative z-10 max-w-2xl">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-2 text-sm font-bold text-primary">
+                <Sparkles className="h-4 w-4" />
+                مساحة عمل عربية للمعلم العصري
+              </div>
+              <h1 className="text-4xl font-black leading-[1.18] tracking-tight sm:text-5xl lg:text-6xl">
+                حضّر درسك بوضوح،
+                <span className="block bg-gradient-to-l from-primary via-violet-500 to-blue-500 bg-clip-text text-transparent">واعلّم بثقة.</span>
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-9 text-muted-foreground sm:text-xl">
+                دفتر التحضير الذكي يساعدك على بناء خطط دروس عملية ومنظمة، ويمنحك مساحة هادئة لتجميع أفكارك ومصادرك قبل دخول الفصل.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Button asChild size="lg" className="h-13 gap-2 rounded-2xl px-6 text-base shadow-xl shadow-primary/20">
+                  <Link href={user ? "/lessons/new" : "/lessons/new"}>
+                    ابدأ تحضيراً جديداً
+                    <ArrowLeft className="h-5 w-5" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="h-13 gap-2 rounded-2xl px-6 text-base">
+                  <Link href="/library">
+                    استكشف المكتبة
+                    <BookOpen className="h-5 w-5" />
+                  </Link>
+                </Button>
+              </div>
+              <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-2"><Check className="h-4 w-4 text-emerald-500" /> واجهة عربية RTL</span>
+                <span className="inline-flex items-center gap-2"><Check className="h-4 w-4 text-emerald-500" /> حفظ وتنظيم الخطط</span>
+                <span className="inline-flex items-center gap-2"><Check className="h-4 w-4 text-emerald-500" /> قابل للتخصيص</span>
+              </div>
             </div>
-            <h1 className="text-2xl font-bold text-foreground">دفتر التحضير الذكي</h1>
+
+            <div className="relative mx-auto w-full max-w-xl lg:mr-auto">
+              <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-primary/20 via-transparent to-blue-500/20 blur-2xl" />
+              <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-card/95 p-4 shadow-2xl shadow-slate-900/10 backdrop-blur">
+                <div className="flex items-center justify-between border-b border-border/70 px-3 pb-4">
+                  <div className="flex items-center gap-2 text-sm font-bold"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> مساحة التحضير</div>
+                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">مسودة جديدة</span>
+                </div>
+                <div className="grid gap-4 p-3 sm:grid-cols-[0.8fr_1.2fr]">
+                  <div className="space-y-3 rounded-2xl bg-muted/35 p-4">
+                    <p className="text-xs font-bold text-muted-foreground">بيانات الحصة</p>
+                    <div className="space-y-2">
+                      <div className="h-10 rounded-xl border border-border/70 bg-background" />
+                      <div className="grid grid-cols-2 gap-2"><div className="h-10 rounded-xl border border-border/70 bg-background" /><div className="h-10 rounded-xl border border-border/70 bg-background" /></div>
+                      <div className="h-20 rounded-xl border border-border/70 bg-background" />
+                    </div>
+                    <div className="h-10 rounded-xl bg-gradient-to-l from-primary to-blue-500" />
+                  </div>
+                  <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/8 to-blue-500/8 p-4">
+                    <div className="mb-5 flex items-center justify-between"><div><p className="text-xs font-bold text-primary">اقتراح ذكي</p><p className="mt-1 font-bold">الكسور الاعتيادية</p></div><WandSparkles className="h-5 w-5 text-primary" /></div>
+                    <div className="space-y-3">
+                      <div className="h-3 w-4/5 rounded-full bg-foreground/10" />
+                      <div className="h-3 w-full rounded-full bg-foreground/10" />
+                      <div className="h-3 w-3/5 rounded-full bg-foreground/10" />
+                      <div className="mt-7 grid grid-cols-2 gap-2"><div className="h-20 rounded-xl bg-background/80" /><div className="h-20 rounded-xl bg-background/80" /></div>
+                    </div>
+                    <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4 text-emerald-500" /> جاهز للمراجعة والتعديل</div>
+                  </div>
+                </div>
+              </div>
+              <div className="absolute -bottom-6 -left-5 hidden items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3 shadow-xl sm:flex"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600"><Check className="h-5 w-5" /></span><div><p className="text-xs text-muted-foreground">الخطوة التالية</p><p className="text-sm font-bold">راجع أهداف الدرس</p></div></div>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">{user?.name}</span>
-            <Link href="/settings">
-              <Button variant="ghost" size="icon">
-                <Settings className="w-5 h-5" />
-              </Button>
-            </Link>
+        </section>
+
+        <section className="container py-20 lg:py-28">
+          <div className="mx-auto max-w-2xl text-center"><p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">كل ما تحتاجه في مكان واحد</p><h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">أدوات بسيطة لعمل أكثر تركيزاً</h2><p className="mt-4 text-lg leading-8 text-muted-foreground">صممنا التجربة لتساعدك على التفكير في جودة الدرس، لا في تنسيق المستندات وتبعثر الملفات.</p></div>
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {capabilities.map((item) => { const Icon = item.icon; return <article key={item.title} className="group rounded-3xl border border-border/70 bg-card p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl"><div className={`mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${item.tone}`}><Icon className="h-6 w-6" /></div><h3 className="text-lg font-extrabold">{item.title}</h3><p className="mt-3 text-sm leading-7 text-muted-foreground">{item.description}</p></article>; })}
           </div>
-        </div>
-      </header>
+        </section>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
-        {/* Welcome Section */}
-        <div className="mb-12">
-          <h2 className="text-3xl font-bold text-foreground mb-2">أهلاً بك، {user?.name?.split(" ")[0]}</h2>
-          <p className="text-muted-foreground text-lg">ابدأ بإنشاء خطة درس جديدة أو استعرض خططك السابقة</p>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-12">
-          <Link href="/lessons/new">
-            <Card className="cursor-pointer hover:shadow-lg hover:border-primary transition-all h-full">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Plus className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold">تحضير جديد</h3>
-                  <p className="text-sm text-muted-foreground">إنشاء خطة درس جديدة</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/lessons">
-            <Card className="cursor-pointer hover:shadow-lg hover:border-primary transition-all h-full">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold">الأرشيف</h3>
-                  <p className="text-sm text-muted-foreground">استعرض خططك السابقة</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/library">
-            <Card className="cursor-pointer hover:shadow-lg hover:border-primary transition-all h-full">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <BookOpen className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold">المكتبة</h3>
-                  <p className="text-sm text-muted-foreground">مكتبة المراجع والكتب</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/settings">
-            <Card className="cursor-pointer hover:shadow-lg hover:border-primary transition-all h-full">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Settings className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold">الإعدادات</h3>
-                  <p className="text-sm text-muted-foreground">تخصيص تفضيلاتك</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-
-        {/* Features Section */}
-        <div className="mb-12">
-          <h3 className="text-2xl font-bold text-foreground mb-6">المميزات الرئيسية</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-bold">✨</span>
-                  </div>
-                  توليد ذكي
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">استخدم قوة الذكاء الاصطناعي (Gemini) لإنشاء خطط دروس احترافية وشاملة في ثوان</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-bold">📊</span>
-                  </div>
-                  محتوى متنوع
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">احصل على السبورة الذكية والملخصات التفاعلية والدروس الصوتية</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-bold">💾</span>
-                  </div>
-                  حفظ منظم
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">احفظ جميع خططك في أرشيف منظم وابحث عنها بسهولة</p>
-              </CardContent>
-            </Card>
+        <section className="border-y border-border/70 bg-muted/20">
+          <div className="container grid gap-12 py-20 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:py-24">
+            <div><p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">طريقة العمل</p><h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">من الفكرة إلى خطة جاهزة في ثلاث خطوات</h2><p className="mt-5 max-w-md leading-8 text-muted-foreground">ابدأ بالمعلومات التي تعرفها، ودع الأدوات تساعدك على ترتيب التفاصيل دون أن تفقد أسلوبك التربوي.</p><Button asChild variant="outline" className="mt-7 gap-2 rounded-xl"><Link href="/lessons/new">جرّب النموذج الآن <ArrowLeft className="h-4 w-4" /></Link></Button></div>
+            <div className="space-y-4">{steps.map((step) => <div key={step.number} className="flex gap-5 rounded-3xl border border-border/70 bg-card p-5 shadow-sm"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-sm font-black text-primary">{step.number}</span><div><h3 className="font-extrabold">{step.title}</h3><p className="mt-2 text-sm leading-7 text-muted-foreground">{step.description}</p></div></div>)}</div>
           </div>
-        </div>
+        </section>
 
-        {/* CTA Section */}
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-8 text-center border border-primary/20">
-          <h3 className="text-2xl font-bold text-foreground mb-3">جاهز لبدء التحضير؟</h3>
-          <p className="text-muted-foreground mb-6">أنشئ خطة درسك الأولى الآن واستمتع بتجربة التحضير الذكي</p>
-          <Link href="/lessons/new">
-            <Button size="lg" className="gap-2">
-              <Plus className="w-5 h-5" />
-              إنشاء خطة درس جديدة
-            </Button>
-          </Link>
-        </div>
+        <section className="container py-20 lg:py-28">
+          <div className="relative overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-12 text-white shadow-2xl shadow-slate-900/20 sm:px-12 lg:px-16"><div className="absolute -left-16 -top-24 h-64 w-64 rounded-full bg-primary/30 blur-3xl" /><div className="absolute -bottom-24 -right-16 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl" /><div className="relative flex flex-col justify-between gap-8 lg:flex-row lg:items-center"><div className="max-w-2xl"><p className="text-sm font-bold text-violet-300">مساحتك التعليمية تبدأ هنا</p><h2 className="mt-3 text-3xl font-black sm:text-4xl">اجعل التحضير عادة هادئة ومنظمة.</h2><p className="mt-4 leading-8 text-slate-300">أنشئ حسابك وابدأ ببناء أول خطة، أو استكشف المكتبة لترتيب مصادرك التعليمية.</p></div><div className="flex flex-col gap-3 sm:flex-row"><Button asChild size="lg" className="gap-2 rounded-2xl bg-white text-slate-950 hover:bg-slate-100"><Link href="/lessons/new">أنشئ أول خطة <ArrowLeft className="h-5 w-5" /></Link></Button><Button asChild size="lg" variant="outline" className="gap-2 rounded-2xl border-slate-700 bg-transparent text-white hover:bg-slate-900"><Link href="/library">افتح المكتبة <BookOpen className="h-5 w-5" /></Link></Button></div></div></div>
+        </section>
       </main>
+
+      <footer className="border-t border-border/70 bg-muted/15"><div className="container flex flex-col gap-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2 font-bold text-foreground"><BookOpen className="h-4 w-4 text-primary" /> دفتر التحضير الذكي</div><p>{loading ? "" : user ? `مرحباً ${user.name || "بك"} — مساحتك جاهزة.` : "أدوات عربية تساعد المعلم على التحضير بتركيز."}</p><button type="button" onClick={startLogin} className="font-semibold text-primary hover:underline">تسجيل الدخول</button></div></footer>
     </div>
   );
 }

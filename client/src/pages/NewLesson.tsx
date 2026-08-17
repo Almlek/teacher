@@ -1,12 +1,13 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import PublicNav from "@/components/PublicNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -79,8 +80,23 @@ export default function NewLesson() {
     e.preventDefault();
     setIsLoading(true);
 
-    if (!formData.subject || !formData.title) {
-      toast.error("يرجى ملء المادة والعنوان");
+    if (!formData.school.trim()) {
+      toast.error("يرجى إدخال اسم المدرسة");
+      setIsLoading(false);
+      return;
+    }
+    if (!formData.subject.trim()) {
+      toast.error("يرجى إدخال المادة الدراسية");
+      setIsLoading(false);
+      return;
+    }
+    if (!formData.title.trim()) {
+      toast.error("يرجى إدخال عنوان الدرس");
+      setIsLoading(false);
+      return;
+    }
+    if (formData.contentSource === "text" && !formData.content.trim()) {
+      toast.error("يرجى إدخال النص المطلوب تحليله لمصدر المحتوى النصي");
       setIsLoading(false);
       return;
     }
@@ -131,20 +147,7 @@ export default function NewLesson() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setLocation("/")}
-            disabled={isLoading}
-          >
-            <ArrowRight className="w-5 h-5" />
-          </Button>
-          <h1 className="text-2xl font-bold text-foreground">خطة درس جديدة</h1>
-        </div>
-      </header>
+      <PublicNav />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
@@ -336,13 +339,24 @@ export default function NewLesson() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="title">عنوان فقط</SelectItem>
-                      <SelectItem value="text">نص مكتوب</SelectItem>
-                      <SelectItem value="image">صور</SelectItem>
-                      <SelectItem value="pdf">ملف PDF</SelectItem>
+                      <SelectItem value="title">عنوان فقط (توليد قياسي)</SelectItem>
+                      <SelectItem value="text">نص مكتوب (إدراج سياق إضافي)</SelectItem>
+                      <SelectItem value="image">صور مرئية (تحليل وتوليد من صور)</SelectItem>
+                      <SelectItem value="pdf">ملف PDF مرجعي</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                {formData.contentSource === "image" && (
+                  <div className="rounded-xl border border-dashed border-border p-4 text-center">
+                    <p className="text-sm font-medium text-muted-foreground">قم بإدراج وصف الصور أو المرفقات المرئية في حقل محتوى الدرس أدناه لكي يتم تحليلها مع العنوان.</p>
+                  </div>
+                )}
+                {formData.contentSource === "pdf" && (
+                  <div className="rounded-xl border border-dashed border-border p-4 text-center">
+                    <p className="text-sm font-medium text-muted-foreground">اختر مرجعاً من المكتبة أو اكتب فقرات المستخلص من ملف الـ PDF في حقل المحتوى.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

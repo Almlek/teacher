@@ -1,0 +1,89 @@
+import { startLogin } from "@/const";
+import { Button } from "@/components/ui/button";
+import { BookOpen, Menu, Sparkles } from "lucide-react";
+import { Link } from "wouter";
+import { useState } from "react";
+
+const links = [
+  { href: "/", label: "الرئيسية" },
+  { href: "/lessons/new", label: "تحضير جديد" },
+  { href: "/lessons", label: "الأرشيف" },
+  { href: "/library", label: "المكتبة" },
+];
+
+export default function PublicNav() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-xl">
+      <div className="container flex h-20 items-center justify-between gap-6">
+        <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-500 text-white shadow-lg shadow-primary/20">
+            <BookOpen className="h-5 w-5" />
+          </span>
+          <span className="hidden text-lg font-extrabold tracking-tight text-foreground sm:inline">دفتر التحضير الذكي</span>
+        </Link>
+
+        <nav className="hidden items-center gap-1 lg:flex" aria-label="التنقل الرئيسي">
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="rounded-xl px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-primary/8 hover:text-primary"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="hidden items-center gap-3 lg:flex">
+          <Link href="/settings" className="text-sm font-semibold text-muted-foreground transition-colors hover:text-primary">
+            الإعدادات
+          </Link>
+          <Button onClick={startLogin} className="gap-2 rounded-xl px-5 shadow-lg shadow-primary/20">
+            <Sparkles className="h-4 w-4" />
+            ابدأ مجاناً
+          </Button>
+        </div>
+
+        <button
+          type="button"
+          aria-label="فتح قائمة التنقل"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className="rounded-xl border border-border p-2 text-muted-foreground transition hover:border-primary hover:text-primary lg:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      </div>
+
+      {open && (
+        <div className="border-t border-border/70 bg-background px-4 py-4 lg:hidden">
+          <nav className="container flex flex-col gap-2" aria-label="التنقل المحمول">
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-primary/8 hover:text-primary"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <Link
+              href="/settings"
+              onClick={() => setOpen(false)}
+              className="rounded-xl px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-primary/8 hover:text-primary"
+            >
+              الإعدادات
+            </Link>
+            <Button onClick={startLogin} className="mt-2 w-full gap-2 rounded-xl">
+              <Sparkles className="h-4 w-4" />
+              ابدأ مجاناً
+            </Button>
+          </nav>
+        </div>
+      )}
+    </header>
+  );
+}
