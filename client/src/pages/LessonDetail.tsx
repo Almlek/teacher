@@ -1,5 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import LoadingState from "@/components/LoadingState";
+import PublicNav from "@/components/PublicNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
@@ -28,24 +30,27 @@ export default function LessonDetail() {
 
   if (lessonQuery.isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="mt-4 text-muted-foreground">جاري التحميل...</p>
-        </div>
+      <div className="min-h-screen bg-muted/20">
+        <PublicNav />
+        <main className="container py-10"><LoadingState variant="loading" title="جاري تحميل الخطة..." description="نجهز محتوى الدرس وتفاصيله." /></main>
+      </div>
+    );
+  }
+
+  if (lessonQuery.isError) {
+    return (
+      <div className="min-h-screen bg-muted/20">
+        <PublicNav />
+        <main className="container py-10"><LoadingState variant="error" title="تعذر تحميل الخطة" description="تحقق من الاتصال ثم أعد المحاولة." actionLabel="إعادة المحاولة" onAction={() => lessonQuery.refetch()} /></main>
       </div>
     );
   }
 
   if (!lessonQuery.data) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-4">لم يتم العثور على الخطة</p>
-          <Button onClick={() => setLocation("/lessons")}>
-            العودة للأرشيف
-          </Button>
-        </div>
+      <div className="min-h-screen bg-muted/20">
+        <PublicNav />
+        <main className="container py-10"><LoadingState variant="empty" title="لم يتم العثور على الخطة" description="قد تكون الخطة حُذفت أو لم تعد متاحة." actionLabel="العودة للأرشيف" onAction={() => setLocation("/lessons")} /></main>
       </div>
     );
   }
@@ -192,55 +197,23 @@ export default function LessonDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setLocation("/lessons")}
-            >
-              <ArrowRight className="w-5 h-5" />
+    <div className="min-h-screen bg-muted/20">
+      <PublicNav />
+      <div className="border-b border-border/70 bg-card/80">
+        <div className="container flex flex-col justify-between gap-4 py-5 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setLocation("/lessons")} aria-label="العودة إلى الأرشيف">
+              <ArrowRight className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{lesson.title}</h1>
-              <p className="text-sm text-muted-foreground">{lesson.subject}</p>
-            </div>
+            <div><h1 className="text-xl font-black text-foreground">{lesson.title}</h1><p className="text-sm text-muted-foreground">{lesson.subject}</p></div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopy}
-              className="gap-2"
-            >
-              <Copy className="w-4 h-4" />
-              {isCopied ? "تم النسخ" : "نسخ"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadText}
-              className="gap-2"
-            >
-              <Download className="w-4 h-4" />
-              نص
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportHTML}
-              disabled={isExporting}
-              className="gap-2"
-            >
-              <FileText className="w-4 h-4" />
-              {isExporting ? "جاري..." : "HTML"}
-            </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={handleCopy} className="gap-2 rounded-xl"><Copy className="h-4 w-4" />{isCopied ? "تم النسخ" : "نسخ"}</Button>
+            <Button variant="outline" size="sm" onClick={handleDownloadText} className="gap-2 rounded-xl"><Download className="h-4 w-4" />نص</Button>
+            <Button variant="outline" size="sm" onClick={handleExportHTML} disabled={isExporting} className="gap-2 rounded-xl"><FileText className="h-4 w-4" />{isExporting ? "جاري..." : "HTML"}</Button>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

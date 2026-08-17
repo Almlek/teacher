@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { ArrowLeft, BookOpen, Check, FolderSearch, LayoutTemplate, Library, ShieldCheck, Sparkles, WandSparkles } from "lucide-react";
 import { Link } from "wouter";
+import { trpc } from "@/lib/trpc";
 
 const capabilities = [
   {
@@ -40,6 +41,10 @@ const steps = [
 
 export default function Home() {
   const { user, loading } = useAuth();
+  const lessonsQuery = trpc.lessons.list.useQuery();
+  const libraryQuery = trpc.library.list.useQuery();
+  const lessonCount = lessonsQuery.data?.length ?? 0;
+  const libraryCount = libraryQuery.data?.length ?? 0;
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
@@ -116,6 +121,20 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {user && (
+          <section className="container pt-10">
+            <div className="grid gap-4 rounded-3xl border border-primary/15 bg-card p-5 shadow-sm sm:grid-cols-[1.4fr_1fr_1fr] sm:items-center">
+              <div>
+                <p className="text-sm text-muted-foreground">مساحتك التعليمية</p>
+                <h2 className="mt-1 text-xl font-black">مرحباً {user.name || "بك"}</h2>
+                <p className="mt-2 text-sm text-muted-foreground">استمر من حيث توقفت أو أنشئ خطة جديدة لحصتك القادمة.</p>
+              </div>
+              <Link href="/lessons" className="rounded-2xl bg-primary/8 p-4 transition hover:bg-primary/12"><p className="text-2xl font-black text-primary">{lessonCount}</p><p className="mt-1 text-sm text-muted-foreground">خطة محفوظة</p></Link>
+              <Link href="/library" className="rounded-2xl bg-blue-500/8 p-4 transition hover:bg-blue-500/12"><p className="text-2xl font-black text-blue-600">{libraryCount}</p><p className="mt-1 text-sm text-muted-foreground">مرجع في المكتبة</p></Link>
+            </div>
+          </section>
+        )}
 
         <section className="container py-20 lg:py-28">
           <div className="mx-auto max-w-2xl text-center"><p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">كل ما تحتاجه في مكان واحد</p><h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">أدوات بسيطة لعمل أكثر تركيزاً</h2><p className="mt-4 text-lg leading-8 text-muted-foreground">صممنا التجربة لتساعدك على التفكير في جودة الدرس، لا في تنسيق المستندات وتبعثر الملفات.</p></div>

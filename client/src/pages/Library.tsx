@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import PublicNav from "@/components/PublicNav";
+import LoadingState from "@/components/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -91,15 +92,14 @@ export default function Library() {
         </div>
 
         {libraryQuery.isLoading ? (
-          <div className="rounded-3xl border border-border/70 bg-card py-20 text-center">
-            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-            <p className="mt-4 text-muted-foreground">جاري تحميل المكتبة...</p>
-          </div>
+          <LoadingState variant="loading" title="جاري تحميل المكتبة..." description="نرتب مراجعك التعليمية في مساحة واحدة." />
+        ) : libraryQuery.isError ? (
+          <LoadingState variant="error" title="تعذر تحميل المكتبة" description="تحقق من الاتصال ثم أعد المحاولة." actionLabel="إعادة المحاولة" onAction={() => libraryQuery.refetch()} />
         ) : filteredBooks.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border bg-card px-6 py-20 text-center">
             <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
             <h2 className="mt-5 text-xl font-extrabold">لا توجد ملفات مطابقة</h2>
-            <p className="mt-2 text-muted-foreground">ارفع مرجعاً جديداً أو جرّب كلمة بحث وتاطير مختلفة.</p>
+            <p className="mt-2 text-muted-foreground">ارفع مرجعاً جديداً أو جرّب كلمة بحث أو تصنيفاً مختلفاً.</p>
             <Button onClick={() => setLocation("/library/upload")} className="mt-6 gap-2 rounded-xl">
               <Plus className="h-4 w-4" /> إضافة أول ملف
             </Button>

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { trpc } from "@/lib/trpc";
 import { Loader2, LogOut } from "lucide-react";
 import PublicNav from "@/components/PublicNav";
+import LoadingState from "@/components/LoadingState";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -59,6 +60,14 @@ export default function Settings() {
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  if (settingsQuery.isLoading) {
+    return <div className="min-h-screen bg-muted/20"><PublicNav /><main className="container py-10"><LoadingState variant="loading" title="جاري تحميل الإعدادات..." description="نستعيد تفضيلات حسابك." /></main></div>;
+  }
+
+  if (settingsQuery.isError) {
+    return <div className="min-h-screen bg-muted/20"><PublicNav /><main className="container py-10"><LoadingState variant="error" title="تعذر تحميل الإعدادات" description="تحقق من الاتصال ثم أعد المحاولة." actionLabel="إعادة المحاولة" onAction={() => settingsQuery.refetch()} /></main></div>;
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

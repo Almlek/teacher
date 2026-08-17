@@ -2,6 +2,7 @@ import { startLogin } from "@/const";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Menu, Sparkles } from "lucide-react";
 import { Link } from "wouter";
+import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 
 const links = [
@@ -13,6 +14,19 @@ const links = [
 
 export default function PublicNav() {
   const [open, setOpen] = useState(false);
+  const utils = trpc.useUtils();
+
+  const prefetch = (href: string) => {
+    if (href === "/lessons") {
+      void utils.lessons.list.prefetch();
+    }
+    if (href === "/library") {
+      void utils.library.list.prefetch();
+    }
+    if (href === "/settings") {
+      void utils.settings.get.prefetch();
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-xl">
@@ -29,6 +43,8 @@ export default function PublicNav() {
             <Link
               key={link.href}
               href={link.href}
+              onMouseEnter={() => prefetch(link.href)}
+              onFocus={() => prefetch(link.href)}
               className="rounded-xl px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-primary/8 hover:text-primary"
             >
               {link.label}
@@ -65,6 +81,8 @@ export default function PublicNav() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
+                onMouseEnter={() => prefetch(link.href)}
+                onFocus={() => prefetch(link.href)}
                 className="rounded-xl px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-primary/8 hover:text-primary"
               >
                 {link.label}
@@ -73,6 +91,8 @@ export default function PublicNav() {
             <Link
               href="/settings"
               onClick={() => setOpen(false)}
+              onMouseEnter={() => prefetch("/settings")}
+              onFocus={() => prefetch("/settings")}
               className="rounded-xl px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-primary/8 hover:text-primary"
             >
               الإعدادات
