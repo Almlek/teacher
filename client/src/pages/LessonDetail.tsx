@@ -1,13 +1,14 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import PdfExportButton from "@/components/PdfExportButton";
 import LoadingState from "@/components/LoadingState";
 import PublicNav from "@/components/PublicNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
-import { ArrowRight, Download, Copy, Loader2, FileText } from "lucide-react";
+import { ArrowRight, Download, Copy, FileText } from "lucide-react";
 import { useLocation, useRoute } from "wouter";
-import { useState } from "react";
+import React, { useState } from "react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 
@@ -198,8 +199,8 @@ export default function LessonDetail() {
 
   return (
     <div className="min-h-screen bg-muted/20">
-      <PublicNav />
-      <div className="border-b border-border/70 bg-card/80">
+      <div data-print-hide><PublicNav /></div>
+      <div data-print-hide className="border-b border-border/70 bg-card/80">
         <div className="container flex flex-col justify-between gap-4 py-5 sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => setLocation("/lessons")} aria-label="العودة إلى الأرشيف">
@@ -210,13 +211,14 @@ export default function LessonDetail() {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={handleCopy} className="gap-2 rounded-xl"><Copy className="h-4 w-4" />{isCopied ? "تم النسخ" : "نسخ"}</Button>
             <Button variant="outline" size="sm" onClick={handleDownloadText} className="gap-2 rounded-xl"><Download className="h-4 w-4" />نص</Button>
+            <PdfExportButton title={lesson.title} />
             <Button variant="outline" size="sm" onClick={handleExportHTML} disabled={isExporting} className="gap-2 rounded-xl"><FileText className="h-4 w-4" />{isExporting ? "جاري..." : "HTML"}</Button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main data-print-content className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Lesson Info */}
           <Card className="mb-8">
@@ -261,7 +263,7 @@ export default function LessonDetail() {
               <TabsTrigger value="summary">الملخص التفاعلي</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="content" className="mt-6">
+            <TabsContent value="content" forceMount className="mt-6">
               <Card>
                 <CardHeader>
                   <CardTitle>محتوى الدرس الكامل</CardTitle>
@@ -278,7 +280,7 @@ export default function LessonDetail() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="board" className="mt-6">
+            <TabsContent value="board" forceMount className="mt-6">
               <Card>
                 <CardHeader>
                   <CardTitle>السبورة الذكية</CardTitle>
@@ -296,7 +298,7 @@ export default function LessonDetail() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="summary" className="mt-6">
+            <TabsContent value="summary" forceMount className="mt-6">
               <Card>
                 <CardHeader>
                   <CardTitle>الملخص التفاعلي</CardTitle>
