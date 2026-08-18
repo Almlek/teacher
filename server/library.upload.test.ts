@@ -12,6 +12,11 @@ describe("library upload validation", () => {
     expect(decodeAndValidateLibraryFile(pngHeader.toString("base64"), "image/png")).toEqual(pngHeader);
   });
 
+  it("accepts a DOCX container with a valid ZIP signature", () => {
+    const docxHeader = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x01, 0x02]);
+    expect(decodeAndValidateLibraryFile(docxHeader.toString("base64"), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")).toEqual(docxHeader);
+  });
+
   it("rejects unsupported types and mismatched content", () => {
     expect(() => decodeAndValidateLibraryFile("dGVzdA==", "text/plain")).toThrow("نوع الملف غير مدعوم");
     expect(() => decodeAndValidateLibraryFile(Buffer.from("not-a-pdf").toString("base64"), "application/pdf")).toThrow("لا يطابق نوعه");

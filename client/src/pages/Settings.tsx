@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { Loader2, LogOut } from "lucide-react";
 import PublicNav from "@/components/PublicNav";
@@ -40,6 +41,10 @@ export default function Settings() {
     defaultTeacher: "",
     defaultDirectorate: "",
     defaultSubject: "",
+    aiProvider: "gemini",
+    defaultExamType: "comprehensive",
+    defaultQuestionTypes: "اختيار من متعدد، صح وخطأ، مقالي",
+    generationTargets: "الخطة، السبورة، الملخص، الخريطة الذهنية، حل التقويم",
   });
 
   useEffect(() => {
@@ -54,6 +59,10 @@ export default function Settings() {
         defaultTeacher: settingsQuery.data.defaultTeacher || "",
         defaultDirectorate: settingsQuery.data.defaultDirectorate || "",
         defaultSubject: settingsQuery.data.defaultSubject || "",
+        aiProvider: settingsQuery.data.aiProvider || "gemini",
+        defaultExamType: settingsQuery.data.defaultExamType || "comprehensive",
+        defaultQuestionTypes: settingsQuery.data.defaultQuestionTypes || "اختيار من متعدد، صح وخطأ، مقالي",
+        generationTargets: settingsQuery.data.generationTargets || "الخطة، السبورة، الملخص، الخريطة الذهنية، حل التقويم",
       });
     }
   }, [settingsQuery.data]);
@@ -70,7 +79,7 @@ export default function Settings() {
     return <div className="min-h-screen bg-muted/20"><PublicNav /><main className="container py-10"><LoadingState variant="error" title="تعذر تحميل الإعدادات" description="تحقق من الاتصال ثم أعد المحاولة." actionLabel="إعادة المحاولة" onAction={() => settingsQuery.refetch()} /></main></div>;
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -203,6 +212,17 @@ export default function Settings() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="defaultDirectorate">المديرية</Label>
+                <Input
+                  id="defaultDirectorate"
+                  name="defaultDirectorate"
+                  value={formData.defaultDirectorate}
+                  onChange={handleChange}
+                  placeholder="اسم المديرية أو الإدارة التعليمية"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="defaultSubject">المادة الافتراضية</Label>
                 <Input
                   id="defaultSubject"
@@ -241,6 +261,43 @@ export default function Settings() {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>إعدادات الذكاء الاصطناعي والاختبارات</CardTitle>
+              <CardDescription>حدد محرك التوليد والقيم الافتراضية لوحدة الاختبارات</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="aiProvider">محرك الذكاء الاصطناعي</Label>
+                  <Select value={formData.aiProvider} onValueChange={(value) => handleSelectChange("aiProvider", value)}>
+                    <SelectTrigger id="aiProvider"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="gemini">Gemini</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="defaultExamType">نوع الاختبار الافتراضي</Label>
+                  <Select value={formData.defaultExamType} onValueChange={(value) => handleSelectChange("defaultExamType", value)}>
+                    <SelectTrigger id="defaultExamType"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="comprehensive">اختبار شامل</SelectItem>
+                      <SelectItem value="formal">اختبار رسمي</SelectItem>
+                      <SelectItem value="electronic">اختبار إلكتروني</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="defaultQuestionTypes">أنواع الأسئلة الافتراضية</Label>
+                <Input id="defaultQuestionTypes" name="defaultQuestionTypes" value={formData.defaultQuestionTypes} onChange={handleChange} placeholder="اختيار من متعدد، صح وخطأ، مقالي" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="generationTargets">محركات التوليد المفعّلة</Label>
+                <Textarea id="generationTargets" name="generationTargets" value={formData.generationTargets} onChange={handleChange} rows={3} placeholder="الخطة، السبورة، الملخص، الخريطة الذهنية، حل التقويم" />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Account Actions */}
           <Card className="border-destructive/50">
             <CardHeader>
@@ -275,6 +332,10 @@ export default function Settings() {
                     defaultTeacher: settingsQuery.data.defaultTeacher || "",
                     defaultDirectorate: settingsQuery.data.defaultDirectorate || "",
                     defaultSubject: settingsQuery.data.defaultSubject || "",
+                    aiProvider: settingsQuery.data.aiProvider || "gemini",
+                    defaultExamType: settingsQuery.data.defaultExamType || "comprehensive",
+                    defaultQuestionTypes: settingsQuery.data.defaultQuestionTypes || "اختيار من متعدد، صح وخطأ، مقالي",
+                    generationTargets: settingsQuery.data.generationTargets || "الخطة، السبورة، الملخص، الخريطة الذهنية، حل التقويم",
                   });
                 }
               }}

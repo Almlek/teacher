@@ -1,5 +1,6 @@
 export const supportedLibraryFileTypes = [
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "image/jpeg",
   "image/png",
   "image/webp",
@@ -12,6 +13,7 @@ export function isSupportedLibraryType(fileType: string) {
 
 export function getLibraryFileLabel(fileType?: string | null) {
   if (fileType === "application/pdf") return "PDF";
+  if (fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return "Word DOCX";
   if (fileType === "image/jpeg") return "صورة JPG";
   if (fileType === "image/png") return "صورة PNG";
   if (fileType === "image/webp") return "صورة WEBP";

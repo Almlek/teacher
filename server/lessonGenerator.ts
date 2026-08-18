@@ -13,6 +13,8 @@ export interface GeneratedLesson {
   content: string;
   boardContent: string;
   summaryContent: string;
+  mindMapContent: string;
+  assessmentContent: string;
 }
 
 const SYSTEM_PROMPT_AR = `أنت معلم خبير في تصميم خطط الدروس الفعّالة والمتكاملة. 
@@ -119,10 +121,40 @@ ${content}`;
     const summaryContent =
       summaryResponse.choices[0]?.message?.content?.toString() || "";
 
+    const mindMapPrompt =
+      params.language === "ar"
+        ? `حوّل خطة الدرس التالية إلى خريطة ذهنية نصية منظمة باستخدام Markdown. اجعل العقد الرئيسية واضحة، واربط المفاهيم بعلاقات مختصرة، ولا تستخدم أكثر من 500 كلمة:\n${content}`
+        : `Turn the following lesson plan into a structured text mind map using Markdown. Make the main nodes clear, connect concepts with concise relationships, and stay under 500 words:\n${content}`;
+
+    const mindMapResponse = await invokeLLM({
+      model: params.aiModel,
+      messages: [{ role: "user", content: mindMapPrompt }],
+      maxTokens: 1000,
+    });
+
+    const mindMapContent =
+      mindMapResponse.choices[0]?.message?.content?.toString() || "";
+
+    const assessmentPrompt =
+      params.language === "ar"
+        ? `بناءً على خطة الدرس التالية، اكتب قسم حل التقويم يتضمن أسئلة تقويمية متنوعة مع إجابات نموذجية وشرح موجز. نظّم الناتج بعناوين واضحة ولا تتجاوز 700 كلمة:\n${content}`
+        : `Based on the following lesson plan, write an assessment solution section with varied assessment questions, model answers, and brief explanations. Use clear headings and stay under 700 words:\n${content}`;
+
+    const assessmentResponse = await invokeLLM({
+      model: params.aiModel,
+      messages: [{ role: "user", content: assessmentPrompt }],
+      maxTokens: 1200,
+    });
+
+    const assessmentContent =
+      assessmentResponse.choices[0]?.message?.content?.toString() || "";
+
     return {
       content,
       boardContent,
       summaryContent,
+      mindMapContent,
+      assessmentContent,
     };
   } catch (error) {
     console.error("Error generating lesson plan:", error);

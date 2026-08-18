@@ -7,9 +7,15 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import NewLesson from "./pages/NewLesson";
 import LessonsList from "./pages/LessonsList";
+import Archive from "./pages/Archive";
 import LessonDetail from "./pages/LessonDetail";
 import Library from "./pages/Library";
 import Settings from "./pages/Settings";
+import ModulePlaceholder from "./pages/ModulePlaceholder";
+import Backup from "./pages/Backup";
+import Exams from "./pages/Exams";
+import ExamEditor from "./pages/ExamEditor";
+
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -21,7 +27,11 @@ function Router() {
       <Route path={"/prepare.html"} component={NewLesson} />
       <Route path={"/lessons/:id"} component={LessonDetail} />
       <Route path={"/lessons"} component={LessonsList} />
-      <Route path={"/archive"} component={LessonsList} />
+      <Route path={"/saved-lessons"} component={LessonsList} />
+      <Route path={"/archive"} component={Archive} />
+      <Route path={"/exams/editor"} component={ExamEditor} />
+      <Route path={"/exams"} component={Exams} />
+      <Route path={"/backup"} component={Backup} />
       <Route path={"/library"} component={Library} />
       <Route path={"/library.html"} component={Library} />
       <Route path={"/settings"} component={Settings} />

@@ -47,12 +47,60 @@ export const lessonPlans = mysqlTable("lesson_plans", {
   boardContent: text("boardContent"),
   audioContent: text("audioContent"),
   summaryContent: text("summaryContent"),
+  mindMapContent: text("mindMapContent"),
+  assessmentContent: text("assessmentContent"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type LessonPlan = typeof lessonPlans.$inferSelect;
 export type InsertLessonPlan = typeof lessonPlans.$inferInsert;
+
+/**
+ * Exams Table
+ * Stores generated and manually authored assessments for each user.
+ */
+export const exams = mysqlTable("exams", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sourceLessonId: int("sourceLessonId"),
+  title: varchar("title", { length: 500 }).notNull(),
+  subject: varchar("subject", { length: 255 }),
+  grade: varchar("grade", { length: 100 }),
+  examType: varchar("examType", { length: 50 }).default("comprehensive").notNull(),
+  instructions: text("instructions"),
+  examContent: text("examContent"),
+  summaryContent: text("summaryContent"),
+  durationMinutes: int("durationMinutes"),
+  totalMarks: int("totalMarks").default(0).notNull(),
+  status: varchar("status", { length: 30 }).default("draft").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Exam = typeof exams.$inferSelect;
+export type InsertExam = typeof exams.$inferInsert;
+
+/**
+ * Exam Questions Table
+ * Stores ordered questions and their answer metadata for each exam.
+ */
+export const examQuestions = mysqlTable("exam_questions", {
+  id: int("id").autoincrement().primaryKey(),
+  examId: int("examId").notNull().references(() => exams.id, { onDelete: "cascade" }),
+  orderIndex: int("orderIndex").default(0).notNull(),
+  questionType: varchar("questionType", { length: 50 }).default("multiple_choice").notNull(),
+  prompt: text("prompt").notNull(),
+  options: text("options"),
+  correctAnswer: text("correctAnswer"),
+  explanation: text("explanation"),
+  marks: int("marks").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ExamQuestion = typeof examQuestions.$inferSelect;
+export type InsertExamQuestion = typeof examQuestions.$inferInsert;
 
 /**
  * Library Books Table
@@ -67,6 +115,8 @@ export const libraryBooks = mysqlTable("library_books", {
   fileKey: varchar("fileKey", { length: 500 }),
   fileSize: int("fileSize"),
   fileType: varchar("fileType", { length: 100 }),
+  extractedText: text("extractedText"),
+  tocText: text("tocText"),
   subject: varchar("subject", { length: 255 }),
   grade: varchar("grade", { length: 100 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -92,6 +142,10 @@ export const userSettings = mysqlTable("user_settings", {
   defaultTeacher: varchar("defaultTeacher", { length: 255 }),
   defaultDirectorate: varchar("defaultDirectorate", { length: 255 }),
   defaultSubject: varchar("defaultSubject", { length: 255 }),
+  aiProvider: varchar("aiProvider", { length: 50 }).default("gemini"),
+  defaultExamType: varchar("defaultExamType", { length: 50 }).default("comprehensive"),
+  defaultQuestionTypes: text("defaultQuestionTypes"),
+  generationTargets: text("generationTargets"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

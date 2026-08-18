@@ -1,15 +1,17 @@
 import { startLogin } from "@/const";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Menu, Sparkles } from "lucide-react";
+import { BookOpen, DatabaseBackup, Menu, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import React, { useState } from "react";
 
 const links = [
   { href: "/", label: "الرئيسية" },
   { href: "/lessons/new", label: "تحضير جديد" },
-  { href: "/lessons", label: "الأرشيف" },
   { href: "/library", label: "المكتبة" },
+  { href: "/lessons", label: "الدروس المحفوظة" },
+  { href: "/exams", label: "الاختبارات" },
+  { href: "/archive", label: "الأرشيف" },
 ];
 
 export default function PublicNav() {
@@ -56,6 +58,10 @@ export default function PublicNav() {
           <Link href="/settings" className="text-sm font-semibold text-muted-foreground transition-colors hover:text-primary">
             الإعدادات
           </Link>
+          <Link href="/backup" className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-primary">
+            <DatabaseBackup className="h-4 w-4" />
+            النسخ الاحتياطي
+          </Link>
           <Button onClick={startLogin} className="gap-2 rounded-xl px-5 shadow-lg shadow-primary/20">
             <Sparkles className="h-4 w-4" />
             ابدأ مجاناً
@@ -96,6 +102,14 @@ export default function PublicNav() {
               className="rounded-xl px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-primary/8 hover:text-primary"
             >
               الإعدادات
+            </Link>
+            <Link
+              href="/backup"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-primary/8 hover:text-primary"
+            >
+              <DatabaseBackup className="h-4 w-4" />
+              النسخ الاحتياطي
             </Link>
             <Button onClick={startLogin} className="mt-2 w-full gap-2 rounded-xl">
               <Sparkles className="h-4 w-4" />

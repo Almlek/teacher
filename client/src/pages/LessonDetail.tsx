@@ -257,10 +257,12 @@ export default function LessonDetail() {
 
           {/* Lesson Content Tabs */}
           <Tabs defaultValue="content" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-5">
               <TabsTrigger value="content">محتوى الدرس</TabsTrigger>
               <TabsTrigger value="board">السبورة الذكية</TabsTrigger>
               <TabsTrigger value="summary">الملخص التفاعلي</TabsTrigger>
+              <TabsTrigger value="mindMap">الخريطة الذهنية</TabsTrigger>
+              <TabsTrigger value="assessment">حل التقويم</TabsTrigger>
             </TabsList>
 
             <TabsContent value="content" forceMount className="mt-6">
@@ -311,6 +313,42 @@ export default function LessonDetail() {
                     </div>
                   ) : (
                     <p className="text-muted-foreground">لا يوجد محتوى متاح</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="mindMap" forceMount className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>الخريطة الذهنية</CardTitle>
+                  <CardDescription>ترابط بصري ومنطقي لمفاهيم الدرس</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {lesson.mindMapContent ? (
+                    <div className="prose prose-sm max-w-none dark:prose-invert">
+                      <Streamdown>{lesson.mindMapContent}</Streamdown>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">لا توجد خريطة ذهنية متاحة</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="assessment" forceMount className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>حل التقويم</CardTitle>
+                  <CardDescription>أسئلة تقويمية مع إجابات نموذجية</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {lesson.assessmentContent ? (
+                    <div className="prose prose-sm max-w-none dark:prose-invert">
+                      <Streamdown>{lesson.assessmentContent}</Streamdown>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">لا توجد إجابات تقويمية متاحة</p>
                   )}
                 </CardContent>
               </Card>

@@ -9,14 +9,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { Loader2, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
-import { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { applyLessonSettings, getGenerationEngines } from "@/lib/lessonDefaults";
 
 export default function NewLesson() {
   const { user, isAuthenticated } = useAuth({ redirectOnUnauthenticated: true });
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<"form" | "generating" | "complete">("form");
+  const settingsQuery = trpc.settings.get.useQuery();
 
   const [formData, setFormData] = useState({
     school: "",
@@ -33,6 +35,29 @@ export default function NewLesson() {
     content: "",
   });
 
+  useEffect(() => {
+    const settings = settingsQuery.data;
+    if (!settings) return;
+    setFormData((previous) => applyLessonSettings(previous, {
+      school: settings.defaultSchool || undefined,
+      teacher: settings.defaultTeacher || undefined,
+      subject: settings.defaultSubject || undefined,
+      language: settings.defaultLanguage || undefined,
+      aiModel: settings.defaultModel || undefined,
+    }));
+  }, [settingsQuery.data]);
+
+  useEffect(() => {
+    const extractedText = window.localStorage.getItem("smart_lesson_planner.lesson_source_text");
+    if (!extractedText) return;
+    setFormData((previous) => ({ ...previous, content: extractedText, contentSource: "text" }));
+    window.localStorage.removeItem("smart_lesson_planner.lesson_source_text");
+  }, []);
+
+  const generationEngines = useMemo(() => {
+    return getGenerationEngines(settingsQuery.data?.generationTargets);
+  }, [settingsQuery.data?.generationTargets]);
+
   const generateMutation = trpc.lessons.generate.useMutation({
     onSuccess: (generated) => {
       toast.success("تم توليد الخطة بنجاح!");
@@ -44,6 +69,8 @@ export default function NewLesson() {
         content: generated.content,
         boardContent: generated.boardContent,
         summaryContent: generated.summaryContent,
+        mindMapContent: generated.mindMapContent,
+        assessmentContent: generated.assessmentContent,
       });
     },
     onError: (error) => {
@@ -136,9 +163,7 @@ export default function NewLesson() {
             نحن نستخدم الذكاء الاصطناعي لإنشاء خطة درس شاملة ومتكاملة
           </p>
           <div className="space-y-2 text-sm text-muted-foreground">
-            <p>✓ توليد محتوى الدرس</p>
-            <p>✓ إنشاء السبورة الذكية</p>
-            <p>✓ تحضير الملخص التفاعلي</p>
+            {generationEngines.map((engine) => <p key={engine}>✓ توليد {engine}</p>)}
           </div>
         </div>
       </div>
@@ -343,6 +368,8 @@ export default function NewLesson() {
                       <SelectItem value="text">نص مكتوب (إدراج سياق إضافي)</SelectItem>
                       <SelectItem value="image">صور مرئية (تحليل وتوليد من صور)</SelectItem>
                       <SelectItem value="pdf">ملف PDF مرجعي</SelectItem>
+                      <SelectItem value="word">ملف Word مرجعي</SelectItem>
+                      <SelectItem value="library">مرجع من المكتبة</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -357,6 +384,32 @@ export default function NewLesson() {
                     <p className="text-sm font-medium text-muted-foreground">اختر مرجعاً من المكتبة أو اكتب فقرات المستخلص من ملف الـ PDF في حقل المحتوى.</p>
                   </div>
                 )}
+                {formData.contentSource === "word" && (
+                  <div className="rounded-xl border border-dashed border-border p-4 text-center">
+                    <p className="text-sm font-medium text-muted-foreground">يمكن اختيار ملف Word من المكتبة بعد تفعيل قارئ المستندات، أو لصق النص المستخرج في حقل المحتوى.</p>
+                  </div>
+                )}
+                {formData.contentSource === "library" && (
+                  <div className="rounded-xl border border-dashed border-border p-4 text-center">
+                    <p className="text-sm font-medium text-muted-foreground">سيتم ربط هذا الخيار بمراجع المكتبة واستخراج نص الدرس في المرحلة التالية.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>محركات التوليد</CardTitle>
+                <CardDescription>ينشئ المحرك حزمة تعليمية متكاملة من مدخلات الحصة نفسها</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  {generationEngines.map((engine) => (
+                    <div key={engine} className="rounded-xl border border-primary/15 bg-primary/5 px-3 py-3 text-center text-sm font-bold text-primary">
+                      {engine}
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 

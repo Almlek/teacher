@@ -14,10 +14,21 @@ import {
   deleteLibraryBook,
   getUserSettings,
   upsertUserSettings,
+  getExamsByUserId,
+  createExam,
+  getExamById,
+  updateExam,
+  deleteExam,
+  getExamQuestions,
+  createExamQuestion,
+  deleteExamQuestions,
+  deleteExamQuestion,
+  deleteAllUserData,
 } from "./db";
 import { generateLessonPlan } from "./lessonGenerator";
 import { storagePut } from "./storage";
 import { decodeAndValidateLibraryFile } from "./libraryUpload";
+import { extractLibraryText } from "./libraryExtract";
 
 export const appRouter = router({
   system: systemRouter,
@@ -54,6 +65,8 @@ export const appRouter = router({
         content: z.string().optional(),
         boardContent: z.string().optional(),
         summaryContent: z.string().optional(),
+        mindMapContent: z.string().optional(),
+        assessmentContent: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         if (!ctx.user) throw new Error("Unauthorized");
@@ -145,6 +158,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         if (!ctx.user) throw new Error("Unauthorized");
         const data = decodeAndValidateLibraryFile(input.fileData, input.fileType);
+        const extracted = await extractLibraryText(data, input.fileType);
 
         const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-180) || "resource";
         const uploaded = await storagePut(`${ctx.user.id}-library/${safeName}`, data, input.fileType);
@@ -156,6 +170,8 @@ export const appRouter = router({
           fileKey: uploaded.key,
           fileSize: data.length,
           fileType: input.fileType,
+          extractedText: extracted.extractedText,
+          tocText: extracted.tocText,
           subject: input.subject,
           grade: input.grade,
         });
@@ -167,6 +183,159 @@ export const appRouter = router({
         if (!ctx.user) throw new Error("Unauthorized");
         return deleteLibraryBook(input.id, ctx.user.id);
       }),
+  }),
+
+  exams: router({
+    list: publicProcedure.query(async ({ ctx }) => {
+      if (!ctx.user) return [];
+      return getExamsByUserId(ctx.user.id);
+    }),
+
+    get: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        if (!ctx.user) return null;
+        const exam = await getExamById(input.id, ctx.user.id);
+        if (!exam) return null;
+        const questions = await getExamQuestions(input.id);
+        return { exam, questions };
+      }),
+
+    create: publicProcedure
+      .input(z.object({
+        title: z.string().min(1).max(500),
+        subject: z.string().max(255).optional(),
+        grade: z.string().max(100).optional(),
+        examType: z.string().max(50).default("comprehensive"),
+        instructions: z.string().optional(),
+        examContent: z.string().optional(),
+        summaryContent: z.string().optional(),
+        durationMinutes: z.number().int().positive().optional(),
+        totalMarks: z.number().int().nonnegative().default(0),
+        sourceLessonId: z.number().int().positive().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        return createExam({ userId: ctx.user.id, ...input } as any);
+      }),
+
+    update: publicProcedure
+      .input(z.object({ id: z.number(), updates: z.object({}).passthrough() }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        return updateExam(input.id, ctx.user.id, input.updates as any);
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        return deleteExam(input.id, ctx.user.id);
+      }),
+
+    questionCreate: publicProcedure
+      .input(z.object({
+        examId: z.number().int().positive(),
+        orderIndex: z.number().int().nonnegative().default(0),
+        questionType: z.string().max(50).default("multiple_choice"),
+        prompt: z.string().min(1),
+        options: z.string().optional(),
+        correctAnswer: z.string().optional(),
+        explanation: z.string().optional(),
+        marks: z.number().int().positive().default(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        const exam = await getExamById(input.examId, ctx.user.id);
+        if (!exam) throw new Error("Exam not found");
+        return createExamQuestion(input as any);
+      }),
+
+    questionsReplace: publicProcedure
+      .input(z.object({
+        examId: z.number().int().positive(),
+        questions: z.array(z.object({
+          orderIndex: z.number().int().nonnegative(),
+          questionType: z.string().max(50),
+          prompt: z.string().min(1),
+          options: z.string().optional(),
+          correctAnswer: z.string().optional(),
+          explanation: z.string().optional(),
+          marks: z.number().int().positive(),
+        })),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        const exam = await getExamById(input.examId, ctx.user.id);
+        if (!exam) throw new Error("Exam not found");
+        await deleteExamQuestions(input.examId);
+        for (const question of input.questions) {
+          await createExamQuestion({ examId: input.examId, ...question });
+        }
+        return { success: true } as const;
+      }),
+
+    questionDelete: publicProcedure
+      .input(z.object({ id: z.number().int().positive(), examId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        const exam = await getExamById(input.examId, ctx.user.id);
+        if (!exam) throw new Error("Exam not found");
+        return deleteExamQuestion(input.id, input.examId);
+      }),
+  }),
+
+  backup: router({
+    export: publicProcedure.query(async ({ ctx }) => {
+      if (!ctx.user) throw new Error("Unauthorized");
+      const [lessons, library, exams, settings] = await Promise.all([
+        getLessonPlansByUserId(ctx.user.id),
+        getLibraryBooksByUserId(ctx.user.id),
+        getExamsByUserId(ctx.user.id),
+        getUserSettings(ctx.user.id),
+      ]);
+      const examQuestions = (await Promise.all(exams.map((exam) => getExamQuestions(exam.id)))).flat();
+      return { version: 1, exportedAt: new Date().toISOString(), lessons, library, exams, examQuestions, settings };
+    }),
+
+    import: publicProcedure
+      .input(z.object({
+        lessons: z.array(z.object({ subject: z.string(), title: z.string() }).passthrough()).default([]),
+        library: z.array(z.object({ title: z.string() }).passthrough()).default([]),
+        exams: z.array(z.object({ title: z.string() }).passthrough()).default([]),
+        examQuestions: z.array(z.object({ examId: z.number(), prompt: z.string() }).passthrough()).default([]),
+        settings: z.record(z.string(), z.any()).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        for (const lesson of input.lessons) {
+          const { id, userId, createdAt, updatedAt, ...lessonData } = lesson as any;
+          await createLessonPlan({ userId: ctx.user.id, ...lessonData } as any);
+        }
+        for (const book of input.library) {
+          const { id, userId, createdAt, updatedAt, ...bookData } = book as any;
+          await addLibraryBook({ userId: ctx.user.id, ...bookData } as any);
+        }
+        const examIdMap = new Map<number, number>();
+        for (const exam of input.exams) {
+          const { id, userId, createdAt, updatedAt, ...examData } = exam as any;
+          const created = await createExam({ userId: ctx.user.id, ...examData } as any);
+          if (id && created.id) examIdMap.set(Number(id), created.id);
+        }
+        for (const question of input.examQuestions) {
+          const newExamId = examIdMap.get(Number(question.examId));
+          if (!newExamId) continue;
+          const { id, examId, createdAt, updatedAt, ...questionData } = question as any;
+          await createExamQuestion({ examId: newExamId, ...questionData } as any);
+        }
+        if (input.settings) await upsertUserSettings(ctx.user.id, input.settings as any);
+        return { success: true } as const;
+      }),
+
+    deleteAll: publicProcedure.mutation(async ({ ctx }) => {
+      if (!ctx.user) throw new Error("Unauthorized");
+      return deleteAllUserData(ctx.user.id);
+    }),
   }),
 
   settings: router({

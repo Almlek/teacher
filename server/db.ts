@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, lessonPlans, libraryBooks, userSettings, InsertLessonPlan, InsertLibraryBook, InsertUserSettings } from "../drizzle/schema";
+import { InsertUser, users, lessonPlans, libraryBooks, userSettings, exams, examQuestions, InsertLessonPlan, InsertLibraryBook, InsertUserSettings, InsertExam, InsertExamQuestion } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -135,6 +135,67 @@ export async function deleteLessonPlan(id: number, userId: number) {
     .where(and(eq(lessonPlans.id, id), eq(lessonPlans.userId, userId)));
 }
 
+// Exams and questions queries
+export async function getExamsByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(exams).where(eq(exams.userId, userId));
+}
+
+export async function createExam(exam: InsertExam) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(exams).values(exam);
+  const rawResult = result as unknown as { insertId?: number };
+  const insertId = Number(rawResult.insertId ?? 0);
+  if (insertId > 0) return { id: insertId };
+  const latest = await db.select({ id: exams.id }).from(exams).where(eq(exams.userId, exam.userId)).orderBy(desc(exams.id)).limit(1);
+  return { id: latest[0]?.id ?? 0 };
+}
+
+export async function getExamById(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(exams).where(and(eq(exams.id, id), eq(exams.userId, userId))).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateExam(id: number, userId: number, updates: Partial<InsertExam>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.update(exams).set(updates as any).where(and(eq(exams.id, id), eq(exams.userId, userId)));
+}
+
+export async function deleteExam(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.delete(exams).where(and(eq(exams.id, id), eq(exams.userId, userId)));
+}
+
+export async function getExamQuestions(examId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(examQuestions).where(eq(examQuestions.examId, examId));
+}
+
+export async function createExamQuestion(question: InsertExamQuestion) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(examQuestions).values(question);
+}
+
+export async function deleteExamQuestions(examId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.delete(examQuestions).where(eq(examQuestions.examId, examId));
+}
+
+export async function deleteExamQuestion(id: number, examId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.delete(examQuestions).where(and(eq(examQuestions.id, id), eq(examQuestions.examId, examId)));
+}
+
 // Library Books queries
 export async function addLibraryBook(book: InsertLibraryBook) {
   const db = await getDb();
@@ -162,6 +223,16 @@ export async function getUserSettings(userId: number) {
   if (!db) return undefined;
   const result = await db.select().from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
   return result.length > 0 ? result[0] : undefined;
+}
+
+export async function deleteAllUserData(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(exams).where(eq(exams.userId, userId));
+  await db.delete(lessonPlans).where(eq(lessonPlans.userId, userId));
+  await db.delete(libraryBooks).where(eq(libraryBooks.userId, userId));
+  await db.delete(userSettings).where(eq(userSettings.userId, userId));
+  return { success: true } as const;
 }
 
 export async function upsertUserSettings(userId: number, settings: Partial<Omit<InsertUserSettings, 'userId'>>) {

@@ -11,17 +11,19 @@ import { trpc } from "@/lib/trpc";
 import { getLibraryFileLabel, isSupportedLibraryType } from "@/lib/libraryUpload";
 import { BookOpen, Download, Eye, FileText, Plus, Search, Trash2, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { toast } from "sonner";
 
 export default function Library() {
   const { isAuthenticated } = useAuth({ redirectOnUnauthenticated: true });
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("all");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadForm, setUploadForm] = useState({ title: "", subject: "", grade: "" });
-  const [previewBook, setPreviewBook] = useState<{ id: number; title: string; subject?: string | null; grade?: string | null; fileName?: string | null; fileUrl?: string | null; fileSize?: number | null; fileType?: string | null } | null>(null);
+  const [previewBook, setPreviewBook] = useState<{ id: number; title: string; subject?: string | null; grade?: string | null; fileName?: string | null; fileUrl?: string | null; fileSize?: number | null; fileType?: string | null; extractedText?: string | null; tocText?: string | null } | null>(null);
 
   const utils = trpc.useUtils();
   const libraryQuery = trpc.library.list.useQuery();
@@ -77,7 +79,7 @@ export default function Library() {
   const handleFileSelection = (file?: File) => {
     if (!file) return;
     if (!isSupportedLibraryType(file.type)) {
-      toast.error("الملف غير مدعوم. اختر PDF أو صورة بصيغة JPG أو PNG أو WEBP أو GIF.");
+      toast.error("الملف غير مدعوم. اختر PDF أو Word DOCX أو صورة بصيغة JPG أو PNG أو WEBP أو GIF.");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -242,16 +244,16 @@ export default function Library() {
         <DialogContent className="max-w-lg rounded-3xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">رفع مرجع تعليمي</DialogTitle>
-            <DialogDescription>أضف ملف PDF أو صورة بحجم أقصى 10 ميجابايت إلى مكتبتك الخاصة.</DialogDescription>
+            <DialogDescription>أضف ملف PDF أو Word DOCX أو صورة بحجم أقصى 10 ميجابايت إلى مكتبتك الخاصة.</DialogDescription>
           </DialogHeader>
           <div className="space-y-5 py-3">
             <div className="rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 p-5 text-center">
               <Upload className="mx-auto h-9 w-9 text-primary" />
               <p className="mt-3 text-sm font-semibold">اختر ملفاً من جهازك</p>
-              <p className="mt-1 text-xs text-muted-foreground">PDF أو JPG أو PNG أو WEBP أو GIF</p>
+              <p className="mt-1 text-xs text-muted-foreground">PDF أو DOCX أو JPG أو PNG أو WEBP أو GIF</p>
               <Input
                 type="file"
-                accept="application/pdf,image/jpeg,image/png,image/webp,image/gif"
+                accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp,image/gif"
                 className="mx-auto mt-4 max-w-sm cursor-pointer rounded-xl bg-background"
                 onChange={(event) => handleFileSelection(event.target.files?.[0])}
                 disabled={uploadMutation.isPending}
@@ -286,6 +288,24 @@ export default function Library() {
           <div className="space-y-4 py-3">
             {previewBook?.fileUrl && previewBook.fileType?.startsWith("image/") && <img src={previewBook.fileUrl} alt={previewBook.title} className="max-h-80 w-full rounded-2xl border border-border object-contain bg-muted/30" />}
             {previewBook?.fileUrl && previewBook.fileType === "application/pdf" && <iframe src={previewBook.fileUrl} title={previewBook.title} className="h-80 w-full rounded-2xl border border-border bg-muted/30" />}
+            {previewBook?.fileType?.includes("word") && (
+              <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 text-sm leading-7">
+                <p className="font-bold text-primary">قارئ Word</p>
+                <p className="mt-1 text-muted-foreground">تم رفع الملف ويمكن استخدام النص المستخرج في إعداد درس جديد.</p>
+              </div>
+            )}
+            {previewBook?.tocText && (
+              <div className="rounded-2xl bg-muted/40 p-4 text-sm leading-7">
+                <p className="font-bold">الفهرس المستخرج</p>
+                <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap font-sans text-muted-foreground">{previewBook.tocText}</pre>
+              </div>
+            )}
+            {previewBook?.extractedText && (
+              <div className="rounded-2xl bg-muted/40 p-4 text-sm leading-7">
+                <p className="font-bold">نص الدرس المستخرج</p>
+                <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap font-sans text-muted-foreground">{previewBook.extractedText}</pre>
+              </div>
+            )}
             <div className="rounded-2xl bg-muted/40 p-4 text-sm space-y-2">
               <p><strong>اسم الملف:</strong> {previewBook?.fileName || "غير محدد"}</p>
               <p><strong>الحجم:</strong> {formatFileSize(previewBook?.fileSize)}</p>
@@ -295,7 +315,17 @@ export default function Library() {
               هذه معاينة سريعة لبيانات المرجع التعليمي المحفوظ في المكتبة. يمكنك تحميل الملف كاملاً للاستفادة منه أثناء التحضير.
             </p>
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-wrap justify-end gap-3 pt-2">
+            {previewBook?.extractedText && (
+              <Button
+                className="rounded-xl"
+                onClick={() => {
+                  window.localStorage.setItem("smart_lesson_planner.lesson_source_text", previewBook.extractedText || "");
+                  setPreviewBook(null);
+                  setLocation("/prepare");
+                }}
+              >استخدام النص في تحضير درس</Button>
+            )}
             <Button variant="outline" onClick={() => setPreviewBook(null)} className="rounded-xl">إغلاق</Button>
             {previewBook?.fileUrl && (
               <Button asChild className="gap-2 rounded-xl">

@@ -69,6 +69,8 @@ describe("lessons router", () => {
     expect(typeof result.content).toBe("string");
     expect(result.boardContent).toBeDefined();
     expect(result.summaryContent).toBeDefined();
+    expect(result.mindMapContent).toBeDefined();
+    expect(result.assessmentContent).toBeDefined();
   }, { timeout: 30000 });
 
   it("should handle unauthorized access", async () => {
