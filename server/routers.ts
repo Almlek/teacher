@@ -26,6 +26,7 @@ import {
   deleteAllUserData,
 } from "./db";
 import { generateLessonPlan } from "./lessonGenerator";
+import { generateExamFromLesson } from "./examGenerator";
 import { storagePut } from "./storage";
 import { decodeAndValidateLibraryFile } from "./libraryUpload";
 import { extractLibraryText } from "./libraryExtract";
@@ -199,6 +200,65 @@ export const appRouter = router({
         if (!exam) return null;
         const questions = await getExamQuestions(input.id);
         return { exam, questions };
+      }),
+
+    generateFromLesson: publicProcedure
+      .input(z.object({
+        lessonId: z.number().int().positive(),
+        examType: z.enum(["comprehensive", "formal", "electronic"]).default("comprehensive"),
+        questionCount: z.number().int().min(3).max(30).default(10),
+        difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
+        language: z.enum(["ar", "en"]).default("ar"),
+        aiModel: z.enum(["gemini-1.5-flash", "gemini-1.5-pro"]).default("gemini-1.5-flash"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        const lesson = await getLessonPlanById(input.lessonId, ctx.user.id);
+        if (!lesson) throw new Error("Lesson not found");
+        const source = [lesson.content, lesson.boardContent, lesson.summaryContent, lesson.mindMapContent, lesson.assessmentContent]
+          .filter((value): value is string => Boolean(value?.trim()))
+          .join("\n\n");
+        if (!source.trim()) throw new Error("لا يوجد محتوى كافٍ في الدرس لتوليد الاختبار.");
+
+        const generated = await generateExamFromLesson({
+          title: lesson.title,
+          subject: lesson.subject ?? undefined,
+          grade: lesson.grade ?? undefined,
+          content: source,
+          examType: input.examType,
+          questionCount: input.questionCount,
+          difficulty: input.difficulty,
+          language: input.language,
+          aiModel: input.aiModel,
+        });
+        const totalMarks = generated.questions.reduce((sum, question) => sum + question.marks, 0);
+        const created = await createExam({
+          userId: ctx.user.id,
+          title: generated.title,
+          subject: lesson.subject,
+          grade: lesson.grade,
+          examType: input.examType,
+          instructions: generated.instructions,
+          examContent: generated.summary,
+          summaryContent: generated.summary,
+          totalMarks,
+          sourceLessonId: lesson.id,
+        } as any);
+        if (!created.id) throw new Error("تعذر حفظ الاختبار المولد.");
+        for (let index = 0; index < generated.questions.length; index += 1) {
+          const question = generated.questions[index];
+          await createExamQuestion({
+            examId: created.id,
+            orderIndex: index,
+            questionType: question.questionType,
+            prompt: question.prompt,
+            options: question.options.length ? JSON.stringify(question.options) : undefined,
+            correctAnswer: question.correctAnswer,
+            explanation: question.explanation,
+            marks: question.marks,
+          });
+        }
+        return { examId: created.id, title: generated.title, questionCount: generated.questions.length };
       }),
 
     create: publicProcedure

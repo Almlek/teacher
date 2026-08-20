@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { generateExamFromLesson } from "./examGenerator";
+
+vi.mock("./examGenerator", () => ({ generateExamFromLesson: vi.fn() }));
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
@@ -57,6 +60,44 @@ describe("exams router", () => {
 
     const backup = await caller.backup.export();
     expect(backup.examQuestions.some((question) => question.examId === created.id)).toBe(true);
+  });
+
+  it("generates and saves an exam from a selected lesson", async () => {
+    const caller = appRouter.createCaller(createAuthContext());
+    const sourceTitle = `درس التوليد الذكي ${Date.now()}`;
+    await caller.lessons.create({
+      title: sourceTitle,
+      subject: "العلوم",
+      grade: "السادس",
+      content: "الماء يتغير بين الحالات الثلاث حسب درجة الحرارة.",
+      boardContent: "الحالات الثلاث للماء",
+      summaryContent: "ملخص عن حالات المادة",
+    });
+    const lesson = (await caller.lessons.list()).find((item) => item.title === sourceTitle);
+    expect(lesson?.id).toBeGreaterThan(0);
+
+    vi.mocked(generateExamFromLesson).mockResolvedValueOnce({
+      title: "اختبار حالات الماء",
+      instructions: "أجب عن الأسئلة.",
+      summary: "اختبار مولد من الدرس.",
+      questions: [{
+        questionType: "multiple_choice",
+        prompt: "ما حالات الماء؟",
+        options: ["صلبة", "سائلة", "غازية", "جميع ما سبق"],
+        correctAnswer: "جميع ما سبق",
+        explanation: "للماء ثلاث حالات شائعة.",
+        marks: 2,
+      }],
+    });
+
+    const generated = await caller.exams.generateFromLesson({ lessonId: lesson!.id, questionCount: 5, difficulty: "medium", examType: "comprehensive", language: "ar", aiModel: "gemini-1.5-flash" });
+    expect(generated.examId).toBeGreaterThan(0);
+    expect(generated.questionCount).toBe(1);
+    const detail = await caller.exams.get({ id: generated.examId });
+    expect(detail?.exam.sourceLessonId).toBe(lesson!.id);
+    expect(detail?.questions[0]?.prompt).toBe("ما حالات الماء؟");
+    expect(detail?.questions[0]?.options).toContain("جميع ما سبق");
+    expect(vi.mocked(generateExamFromLesson)).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("الماء") }));
   });
 
   it("returns a backup payload with the required collections", async () => {

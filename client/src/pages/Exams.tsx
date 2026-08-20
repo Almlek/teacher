@@ -2,8 +2,14 @@ import PublicNav from "@/components/PublicNav";
 import LoadingState from "@/components/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClipboardList, Clock3, FilePlus2, GraduationCap, Plus } from "lucide-react";
-import { Link } from "wouter";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ClipboardList, Clock3, FilePlus2, GraduationCap, Plus, Sparkles } from "lucide-react";
+import React, { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 
 const examTypeLabels: Record<string, string> = {
@@ -12,9 +18,42 @@ const examTypeLabels: Record<string, string> = {
   electronic: "اختبار إلكتروني",
 };
 
+const difficultyLabels = { easy: "سهل", medium: "متوسط", hard: "متقدم" } as const;
+
 export default function Exams() {
+  const [, setLocation] = useLocation();
+  const [generatorOpen, setGeneratorOpen] = useState(false);
+  const [selectedLessonId, setSelectedLessonId] = useState("");
+  const [examType, setExamType] = useState<"comprehensive" | "formal" | "electronic">("comprehensive");
+  const [questionCount, setQuestionCount] = useState("10");
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [aiModel, setAiModel] = useState<"gemini-1.5-flash" | "gemini-1.5-pro">("gemini-1.5-flash");
   const examsQuery = trpc.exams.list.useQuery();
+  const lessonsQuery = trpc.lessons.list.useQuery();
+  const generateMutation = trpc.exams.generateFromLesson.useMutation({
+    onSuccess: (result) => {
+      toast.success(`تم توليد ${result.questionCount} أسئلة وحفظ الاختبار بنجاح`);
+      setGeneratorOpen(false);
+      setLocation(`/exams/editor?examId=${result.examId}`);
+    },
+    onError: (error) => toast.error(error.message || "تعذر توليد الاختبار"),
+  });
   const exams = examsQuery.data ?? [];
+  const lessons = lessonsQuery.data ?? [];
+
+  const handleGenerate = () => {
+    const lessonId = Number(selectedLessonId);
+    const count = Number(questionCount);
+    if (!lessonId) {
+      toast.error("اختر درساً مصدرًا لتوليد الاختبار");
+      return;
+    }
+    if (!Number.isInteger(count) || count < 3 || count > 30) {
+      toast.error("عدد الأسئلة يجب أن يكون بين 3 و30");
+      return;
+    }
+    generateMutation.mutate({ lessonId, examType, questionCount: count, difficulty, language: "ar", aiModel });
+  };
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -30,9 +69,12 @@ export default function Exams() {
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">اختباراتك في مساحة واحدة</h1>
               <p className="mt-3 max-w-2xl leading-8 text-muted-foreground">أنشئ اختباراً شاملاً أو رسمياً أو إلكترونياً، واحفظ الأسئلة والإجابات والدرجات ضمن أرشيفك التعليمي.</p>
             </div>
-            <Link href="/exams/editor">
-              <Button className="gap-2 rounded-xl px-5"><Plus className="h-4 w-4" /> اختبار جديد</Button>
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => setGeneratorOpen(true)} className="gap-2 rounded-xl px-5"><Sparkles className="h-4 w-4" /> توليد اختبار ذكي</Button>
+              <Link href="/exams/editor">
+                <Button variant="outline" className="gap-2 rounded-xl px-5"><Plus className="h-4 w-4" /> اختبار يدوي</Button>
+              </Link>
+            </div>
           </section>
 
           {examsQuery.isLoading ? (
@@ -65,6 +107,56 @@ export default function Exams() {
           )}
         </div>
       </main>
+
+      <Dialog open={generatorOpen} onOpenChange={setGeneratorOpen}>
+        <DialogContent className="max-w-2xl rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl"><Sparkles className="h-5 w-5 text-primary" /> توليد اختبار ذكي من درس</DialogTitle>
+            <DialogDescription>اختر خطة درس محفوظة، وسيحوّل الذكاء الاصطناعي محتواها إلى اختبار جاهز مع الإجابات والدرجات.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-3 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="sourceLesson">الدرس المصدر</Label>
+              <Select value={selectedLessonId} onValueChange={setSelectedLessonId} disabled={lessonsQuery.isLoading || generateMutation.isPending}>
+                <SelectTrigger id="sourceLesson"><SelectValue placeholder={lessonsQuery.isLoading ? "جاري تحميل الدروس..." : "اختر درساً محفوظاً"} /></SelectTrigger>
+                <SelectContent>
+                  {lessons.map((lesson) => <SelectItem key={lesson.id} value={String(lesson.id)}>{lesson.title} — {lesson.subject || "مادة غير محددة"}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {!lessonsQuery.isLoading && lessons.length === 0 && <p className="text-xs text-muted-foreground">أنشئ خطة درس أولاً حتى تستخدم التوليد الذكي.</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="generatedExamType">نوع الاختبار</Label>
+              <Select value={examType} onValueChange={(value) => setExamType(value as typeof examType)} disabled={generateMutation.isPending}>
+                <SelectTrigger id="generatedExamType"><SelectValue /></SelectTrigger>
+                <SelectContent>{Object.entries(examTypeLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="generatedDifficulty">الصعوبة</Label>
+              <Select value={difficulty} onValueChange={(value) => setDifficulty(value as typeof difficulty)} disabled={generateMutation.isPending}>
+                <SelectTrigger id="generatedDifficulty"><SelectValue /></SelectTrigger>
+                <SelectContent>{Object.entries(difficultyLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="generatedQuestionCount">عدد الأسئلة</Label>
+              <Input id="generatedQuestionCount" type="number" min={3} max={30} value={questionCount} onChange={(event) => setQuestionCount(event.target.value)} disabled={generateMutation.isPending} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="generatedAiModel">نموذج الذكاء الاصطناعي</Label>
+              <Select value={aiModel} onValueChange={(value) => setAiModel(value as typeof aiModel)} disabled={generateMutation.isPending}>
+                <SelectTrigger id="generatedAiModel"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="gemini-1.5-flash">Gemini Flash — أسرع</SelectItem><SelectItem value="gemini-1.5-pro">Gemini Pro — أعمق</SelectItem></SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGeneratorOpen(false)} disabled={generateMutation.isPending}>إلغاء</Button>
+            <Button onClick={handleGenerate} disabled={generateMutation.isPending || lessons.length === 0} className="gap-2">{generateMutation.isPending ? "جاري بناء الأسئلة..." : <><Sparkles className="h-4 w-4" /> توليد وحفظ الاختبار</>}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
