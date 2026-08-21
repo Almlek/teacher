@@ -33,6 +33,7 @@ import {
 } from "./db";
 import { generateLessonPlan } from "./lessonGenerator";
 import { generateExamFromLesson } from "./examGenerator";
+import { generateExamFromImage } from "./imageExamGenerator";
 import { storagePut } from "./storage";
 import { decodeAndValidateLibraryFile } from "./libraryUpload";
 import { extractLibraryText } from "./libraryExtract";
@@ -445,6 +446,29 @@ export const appRouter = router({
   }),
 
   questionBank: router({
+    analyzeImage: publicProcedure
+      .input(z.object({
+        imageData: z.string().min(20).max(14_000_000),
+        mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]),
+        title: z.string().max(255).optional(),
+        subject: z.string().max(255).optional(),
+        grade: z.string().max(100).optional(),
+        questionCount: z.number().int().min(1).max(20).default(5),
+        difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
+        preferredType: z.enum(["mixed", "multiple_choice", "true_false", "short_answer", "essay"]).default("mixed"),
+        language: z.enum(["ar", "en"]).default("ar"),
+        aiModel: z.enum(["gemini-1.5-flash", "gemini-1.5-pro"]).default("gemini-1.5-flash"),
+        tags: z.string().max(500).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        const imageBuffer = decodeAndValidateLibraryFile(input.imageData, input.mimeType);
+        const extension = input.mimeType.split("/")[1] === "jpeg" ? "jpg" : input.mimeType.split("/")[1];
+        const stored = await storagePut(`${ctx.user.id}-image-analysis/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`, imageBuffer, input.mimeType);
+        const assessment = await generateExamFromImage({ ...input, imageData: imageBuffer.toString("base64") });
+        return { ...assessment, imageUrl: stored.url };
+      }),
+
     list: publicProcedure.query(async ({ ctx }) => {
       if (!ctx.user) return [];
       return getQuestionBankByUserId(ctx.user.id);

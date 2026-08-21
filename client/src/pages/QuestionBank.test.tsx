@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   create: { mutateAsync: vi.fn(), isPending: false },
+  analyzeImage: { mutateAsync: vi.fn(), isPending: false },
   importFromExam: { mutateAsync: vi.fn(), isPending: false },
   delete: { mutateAsync: vi.fn(), isPending: false },
   exams: [{ id: 77, title: "اختبار العلوم" }],
@@ -30,6 +31,7 @@ vi.mock("@/lib/trpc", () => ({
         return { data: res, isLoading: false };
       } },
       create: { useMutation: () => mocks.create },
+      analyzeImage: { useMutation: () => mocks.analyzeImage },
       importFromExam: { useMutation: () => mocks.importFromExam },
       delete: { useMutation: () => mocks.delete },
     },
@@ -42,6 +44,26 @@ describe("question bank UI", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+  });
+
+  it("analyzes an uploaded image and saves a generated question after review", async () => {
+    mocks.analyzeImage.mutateAsync.mockResolvedValueOnce({
+      title: "دورة الماء",
+      visualSummary: "مخطط يوضح مراحل الدورة.",
+      learningObjectives: ["تمييز التبخر"],
+      assessmentNotes: "راجع ارتباط السؤال بالمخطط.",
+      imageUrl: "/manus-storage/1-image-analysis/water.png",
+      questions: [{ questionType: "multiple_choice", prompt: "ما المرحلة الأولى؟", options: ["التبخر", "الهطول"], correctAnswer: "التبخر", explanation: "لأنه يبدأ الدورة.", marks: 2, tags: "علوم, صورة" }],
+    });
+    render(<QuestionBank />);
+    const file = new File([new Uint8Array([137, 80, 78, 71])], "water.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("الصورة التعليمية"), { target: { files: [file] } });
+    await waitFor(() => expect(screen.getByText("الصورة جاهزة للتحليل")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "تحليل الصورة وتوليد المسودة" }));
+    await waitFor(() => expect(screen.getByText("ما المرحلة الأولى؟")).toBeTruthy());
+    expect(mocks.analyzeImage.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ mimeType: "image/png", questionCount: 5 }));
+    fireEvent.click(screen.getByRole("button", { name: "حفظ في البنك" }));
+    await waitFor(() => expect(mocks.create.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ prompt: "ما المرحلة الأولى؟", imageUrl: "/manus-storage/1-image-analysis/water.png", tags: "علوم, صورة" })));
   });
 
   it("adds a reusable question and filters the visible bank", async () => {

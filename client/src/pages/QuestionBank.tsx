@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { BookMarked, Filter, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { BookMarked, CheckCircle2, Filter, Image as ImageIcon, Loader2, Plus, Search, Sparkles, Trash2, Upload } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -36,10 +36,30 @@ const initialForm = {
   marks: "1",
 };
 
+type ImageQuestion = {
+  questionType: string;
+  prompt: string;
+  options: string[];
+  correctAnswer: string;
+  explanation: string;
+  marks: number;
+  tags: string;
+};
+
+type ImageAssessment = {
+  title: string;
+  visualSummary: string;
+  learningObjectives: string[];
+  assessmentNotes: string;
+  questions: ImageQuestion[];
+  imageUrl: string;
+};
+
 export default function QuestionBank() {
   const bankQuery = trpc.questionBank.list.useQuery();
   const examsQuery = trpc.exams.list.useQuery();
   const createMutation = trpc.questionBank.create.useMutation();
+  const analyzeMutation = trpc.questionBank.analyzeImage.useMutation();
   const importMutation = trpc.questionBank.importFromExam.useMutation();
   const deleteMutation = trpc.questionBank.delete.useMutation();
   const utils = trpc.useUtils();
@@ -51,6 +71,17 @@ export default function QuestionBank() {
   const [filterDifficulty, setFilterDifficulty] = useState("all");
   const [filterTag, setFilterTag] = useState("all");
   const [selectedExamId, setSelectedExamId] = useState("");
+  const [analysisImageData, setAnalysisImageData] = useState("");
+  const [analysisMimeType, setAnalysisMimeType] = useState<"image/jpeg" | "image/png" | "image/webp" | "image/gif">("image/png");
+  const [analysisPreview, setAnalysisPreview] = useState("");
+  const [analysisTitle, setAnalysisTitle] = useState("");
+  const [analysisSubject, setAnalysisSubject] = useState("");
+  const [analysisGrade, setAnalysisGrade] = useState("");
+  const [analysisTags, setAnalysisTags] = useState("تحليل صورة");
+  const [analysisCount, setAnalysisCount] = useState("5");
+  const [analysisDifficulty, setAnalysisDifficulty] = useState("medium");
+  const [analysisType, setAnalysisType] = useState("mixed");
+  const [analysisResult, setAnalysisResult] = useState<ImageAssessment | null>(null);
 
   const subjects = useMemo(() => Array.from(new Set((bankQuery.data || []).map((item) => item.subject).filter(Boolean) as string[])), [bankQuery.data]);
   const grades = useMemo(() => Array.from(new Set((bankQuery.data || []).map((item) => item.grade).filter(Boolean) as string[])), [bankQuery.data]);
@@ -95,13 +126,87 @@ export default function QuestionBank() {
         options: form.options || undefined,
         correctAnswer: form.correctAnswer || undefined,
         explanation: form.explanation || undefined,
+        tags: form.tags || undefined,
         marks: Number(form.marks) || 1,
       });
       setForm(initialForm);
-      await utils.questionBank.list.invalidate();
+      await Promise.all([utils.questionBank.list.invalidate(), utils.questionBank.search.invalidate()]);
       toast.success("تمت إضافة السؤال إلى بنك الأسئلة");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذر إضافة السؤال");
+    }
+  };
+
+  const handleAnalyzeImage = async () => {
+    if (!analysisImageData) {
+      toast.error("اختر صورة أو رسماً تعليمياً أولاً");
+      return;
+    }
+    try {
+      const result = await analyzeMutation.mutateAsync({
+        imageData: analysisImageData,
+        mimeType: analysisMimeType,
+        title: analysisTitle || undefined,
+        subject: analysisSubject || undefined,
+        grade: analysisGrade || undefined,
+        questionCount: Number(analysisCount) || 5,
+        difficulty: analysisDifficulty as "easy" | "medium" | "hard",
+        preferredType: analysisType as "mixed" | "multiple_choice" | "true_false" | "short_answer" | "essay",
+        language: "ar",
+        aiModel: "gemini-1.5-flash",
+        tags: analysisTags || undefined,
+      });
+      setAnalysisResult(result);
+      setAnalysisPreview(result.imageUrl);
+      toast.success("تم تحليل الصورة وتوليد مسودة الأسئلة. راجعها قبل الحفظ.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر تحليل الصورة");
+    }
+  };
+
+  const handleAnalysisFile = (file?: File) => {
+    if (!file) return;
+    const supported = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!supported.includes(file.type)) {
+      toast.error("اختر صورة بصيغة JPG أو PNG أو WEBP أو GIF");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("حجم الصورة يجب ألا يتجاوز 10 ميجابايت");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = String(reader.result || "");
+      const encoded = value.split(",")[1] || "";
+      setAnalysisImageData(encoded);
+      setAnalysisMimeType(file.type as typeof analysisMimeType);
+      setAnalysisPreview(value);
+      setAnalysisResult(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveGeneratedQuestion = async (question: ImageQuestion) => {
+    if (!analysisResult) return;
+    try {
+      await createMutation.mutateAsync({
+        subject: analysisSubject || undefined,
+        grade: analysisGrade || undefined,
+        questionType: question.questionType,
+        difficulty: analysisDifficulty,
+        prompt: question.prompt,
+        options: question.options.length ? question.options.join("\n") : undefined,
+        correctAnswer: question.correctAnswer || undefined,
+        explanation: question.explanation || undefined,
+        imageUrl: analysisResult.imageUrl,
+        tags: question.tags || analysisTags || undefined,
+        marks: question.marks,
+      });
+      await Promise.all([utils.questionBank.list.invalidate(), utils.questionBank.search.invalidate()]);
+      toast.success("تم حفظ السؤال الناتج في بنك الأسئلة");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر حفظ السؤال الناتج");
     }
   };
 
@@ -161,6 +266,26 @@ export default function QuestionBank() {
               <div className="space-y-2"><Label htmlFor="bank-marks">الدرجة</Label><Input id="bank-marks" type="number" min="1" value={form.marks} onChange={(event) => updateForm("marks", event.target.value)} /></div>
               <div className="space-y-2 sm:col-span-2"><Label htmlFor="bank-tags">الإشارات (Tags)</Label><Input id="bank-tags" value={form.tags} onChange={(event) => updateForm("tags", event.target.value)} placeholder="مثال: فصل أول, مهم, مراجعة" /></div>
               <div className="flex items-end sm:col-span-2"><Button onClick={handleCreate} disabled={createMutation.isPending} className="w-full gap-2 rounded-xl">{createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}حفظ في بنك الأسئلة</Button></div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.06] via-background to-blue-500/[0.05]">
+            <CardHeader><CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" />تحليل صورة وتوليد أسئلة بالذكاء الاصطناعي</CardTitle><CardDescription>ارفع خريطة أو مخططاً أو رسماً تعليمياً، وسيقترح الذكاء الاصطناعي أسئلة وتقييماً أولياً. راجع النتائج قبل حفظها.</CardDescription></CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-2 sm:col-span-2"><Label htmlFor="analysis-image">الصورة التعليمية</Label><Input id="analysis-image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => handleAnalysisFile(event.target.files?.[0])} /></div>
+                <div className="space-y-2"><Label htmlFor="analysis-title">عنوان التحليل</Label><Input id="analysis-title" value={analysisTitle} onChange={(event) => setAnalysisTitle(event.target.value)} placeholder="مثال: دورة الماء" /></div>
+                <div className="space-y-2"><Label htmlFor="analysis-tags">إشارات النتائج</Label><Input id="analysis-tags" value={analysisTags} onChange={(event) => setAnalysisTags(event.target.value)} placeholder="تحليل صورة, مراجعة" /></div>
+                <div className="space-y-2"><Label htmlFor="analysis-subject">المادة</Label><Input id="analysis-subject" value={analysisSubject} onChange={(event) => setAnalysisSubject(event.target.value)} placeholder="العلوم" /></div>
+                <div className="space-y-2"><Label htmlFor="analysis-grade">الصف</Label><Input id="analysis-grade" value={analysisGrade} onChange={(event) => setAnalysisGrade(event.target.value)} placeholder="السادس" /></div>
+                <div className="space-y-2"><Label>عدد الأسئلة</Label><Input type="number" min="1" max="20" value={analysisCount} onChange={(event) => setAnalysisCount(event.target.value)} /></div>
+                <div className="space-y-2"><Label>الصعوبة</Label><Select value={analysisDifficulty} onValueChange={setAnalysisDifficulty}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="easy">سهل</SelectItem><SelectItem value="medium">متوسط</SelectItem><SelectItem value="hard">متقدم</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label>نوع الأسئلة</Label><Select value={analysisType} onValueChange={setAnalysisType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="mixed">متنوعة</SelectItem><SelectItem value="multiple_choice">اختيار من متعدد</SelectItem><SelectItem value="true_false">صح أو خطأ</SelectItem><SelectItem value="short_answer">إجابة قصيرة</SelectItem><SelectItem value="essay">مقالية</SelectItem></SelectContent></Select></div>
+              </div>
+              {analysisPreview && <div className="grid gap-4 rounded-2xl border border-dashed border-primary/30 bg-background/70 p-4 sm:grid-cols-[180px_1fr]"><img src={analysisPreview} alt="معاينة الصورة التعليمية" className="h-36 w-full rounded-xl border object-contain" /><div className="flex flex-col justify-center gap-2 text-sm text-muted-foreground"><div className="flex items-center gap-2 font-bold text-foreground"><ImageIcon className="h-4 w-4 text-primary" />الصورة جاهزة للتحليل</div><p>سيتم حفظ نسخة آمنة من الصورة وربطها بالأسئلة التي تختار حفظها.</p></div></div>}
+              <Button onClick={() => void handleAnalyzeImage()} disabled={analyzeMutation.isPending || !analysisImageData} className="gap-2 rounded-xl">{analyzeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}تحليل الصورة وتوليد المسودة</Button>
+
+              {analysisResult && <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900 dark:bg-emerald-950/20"><div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300"><CheckCircle2 className="h-5 w-5" />مسودة قابلة للمراجعة: {analysisResult.title}</div><div className="grid gap-3 sm:grid-cols-2"><div><p className="text-xs font-bold text-muted-foreground">ملخص بصري</p><p className="mt-1 text-sm leading-7">{analysisResult.visualSummary}</p></div><div><p className="text-xs font-bold text-muted-foreground">ملاحظات التقييم</p><p className="mt-1 text-sm leading-7">{analysisResult.assessmentNotes}</p></div></div>{analysisResult.learningObjectives.length > 0 && <div><p className="text-xs font-bold text-muted-foreground">أهداف التعلم المستخرجة</p><div className="mt-2 flex flex-wrap gap-2">{analysisResult.learningObjectives.map((objective, index) => <span key={index} className="rounded-full bg-background px-3 py-1 text-xs">{objective}</span>)}</div></div>}<div className="grid gap-3 lg:grid-cols-2">{analysisResult.questions.map((question, index) => <div key={`${question.prompt}-${index}`} className="rounded-xl border bg-background p-4"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">السؤال {index + 1}</span><Button size="sm" variant="outline" onClick={() => void handleSaveGeneratedQuestion(question)} disabled={createMutation.isPending} className="gap-1.5"><Upload className="h-3.5 w-3.5" />حفظ في البنك</Button></div><p className="mt-3 font-bold leading-7">{question.prompt}</p>{question.options.length > 0 && <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">{question.options.join("\n")}</p>}<p className="mt-2 text-sm"><span className="font-bold">الإجابة:</span> {question.correctAnswer}</p><p className="mt-1 text-xs leading-6 text-muted-foreground">{question.explanation}</p><div className="mt-3 flex flex-wrap gap-1.5">{question.tags.split(",").map((tag, tagIndex) => <span key={tagIndex} className="rounded bg-muted px-2 py-0.5 text-[10px]">#{tag.trim()}</span>)}</div></div>)}</div></div>}
             </CardContent>
           </Card>
 

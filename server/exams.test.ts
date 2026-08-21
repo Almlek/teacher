@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { generateExamFromLesson } from "./examGenerator";
+import { generateExamFromImage } from "./imageExamGenerator";
 
 vi.mock("./examGenerator", () => ({ generateExamFromLesson: vi.fn() }));
+vi.mock("./imageExamGenerator", () => ({ generateExamFromImage: vi.fn() }));
 vi.mock("./storage", () => ({ storagePut: vi.fn() }));
 import { storagePut } from "./storage";
+
+const mockedGenerateExamFromImage = vi.mocked(generateExamFromImage);
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
@@ -73,6 +77,24 @@ describe("exams router", () => {
     const uploaded = await caller.exams.questionImageUpload({ fileName: "diagram.png", fileType: "image/png", fileData: pngData });
     expect(uploaded.url).toBe("/manus-storage/1-exam-images/diagram.png");
     expect(vi.mocked(storagePut)).toHaveBeenCalledWith(expect.stringContaining("1-exam-images/"), expect.any(Buffer), "image/png");
+  });
+
+  it("analyzes an educational image and returns reviewable questions with its stored image", async () => {
+    vi.mocked(storagePut).mockResolvedValueOnce({ key: "1-image-analysis/water.png", url: "/manus-storage/1-image-analysis/water.png" });
+    mockedGenerateExamFromImage.mockResolvedValueOnce({
+      title: "تحليل دورة الماء",
+      visualSummary: "مخطط لدورة الماء.",
+      learningObjectives: ["تمييز التبخر"],
+      assessmentNotes: "راجع دقة السؤال.",
+      questions: [{ questionType: "multiple_choice", prompt: "ما المرحلة الأولى؟", options: ["التبخر"], correctAnswer: "التبخر", explanation: "شرح", marks: 1, tags: "علوم" }],
+    });
+    const caller = appRouter.createCaller(createAuthContext());
+    const pngData = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+    const result = await caller.questionBank.analyzeImage({ imageData: pngData, mimeType: "image/png", subject: "العلوم", grade: "السادس", questionCount: 1, difficulty: "medium", preferredType: "mixed", language: "ar", aiModel: "gemini-1.5-flash", tags: "علوم" });
+    expect(result.imageUrl).toBe("/manus-storage/1-image-analysis/water.png");
+    expect(result.questions[0]?.prompt).toBe("ما المرحلة الأولى؟");
+    expect(mockedGenerateExamFromImage).toHaveBeenCalledWith(expect.objectContaining({ mimeType: "image/png", imageData: expect.any(String) }));
+    expect(vi.mocked(storagePut)).toHaveBeenCalledWith(expect.stringContaining("1-image-analysis/"), expect.any(Buffer), "image/png");
   });
 
   it("rejects non-image question uploads", async () => {
