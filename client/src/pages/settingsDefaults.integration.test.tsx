@@ -28,7 +28,8 @@ vi.mock("@/lib/trpc", () => ({
       lessons: { list: { prefetch: vi.fn() } },
       library: { list: { prefetch: vi.fn() } },
       settings: { get: { prefetch: vi.fn() } },
-      exams: { list: { prefetch: vi.fn() } },
+      exams: { list: { prefetch: vi.fn() }, versionsList: { invalidate: vi.fn() } },
+      questionBank: { list: { prefetch: vi.fn(), invalidate: vi.fn() } },
     }),
     settings: { get: { useQuery: mocks.settingsQuery } },
     lessons: { generate: { useMutation: mocks.mutation }, create: { useMutation: mocks.mutation } },
@@ -38,6 +39,13 @@ vi.mock("@/lib/trpc", () => ({
       update: { useMutation: mocks.mutation },
       questionsReplace: { useMutation: mocks.mutation },
       questionImageUpload: { useMutation: mocks.mutation },
+      versionsList: { useQuery: () => ({ data: [], isLoading: false }) },
+      versionCreate: { useMutation: mocks.mutation },
+      versionRestore: { useMutation: mocks.mutation },
+    },
+    questionBank: {
+      list: { useQuery: () => ({ data: [], isLoading: false }) },
+      create: { useMutation: mocks.mutation },
     },
   },
 }));

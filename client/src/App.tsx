@@ -15,6 +15,7 @@ import ModulePlaceholder from "./pages/ModulePlaceholder";
 import Backup from "./pages/Backup";
 import Exams from "./pages/Exams";
 import ExamEditor from "./pages/ExamEditor";
+import QuestionBank from "./pages/QuestionBank";
 
 
 function Router() {
@@ -31,6 +32,7 @@ function Router() {
       <Route path={"/archive"} component={Archive} />
       <Route path={"/exams/editor"} component={ExamEditor} />
       <Route path={"/exams"} component={Exams} />
+      <Route path={"/question-bank"} component={QuestionBank} />
       <Route path={"/backup"} component={Backup} />
       <Route path={"/library"} component={Library} />
       <Route path={"/library.html"} component={Library} />

@@ -23,6 +23,12 @@ import {
   createExamQuestion,
   deleteExamQuestions,
   deleteExamQuestion,
+  getExamVersions,
+  createExamVersion,
+  getQuestionBankByUserId,
+  searchQuestionBank,
+  createQuestionBankItem,
+  deleteQuestionBankItem,
   deleteAllUserData,
 } from "./db";
 import { generateLessonPlan } from "./lessonGenerator";
@@ -365,19 +371,167 @@ export const appRouter = router({
         if (!exam) throw new Error("Exam not found");
         return deleteExamQuestion(input.id, input.examId);
       }),
+
+    versionsList: publicProcedure
+      .input(z.object({ examId: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => {
+        if (!ctx.user) return [];
+        const exam = await getExamById(input.examId, ctx.user.id);
+        if (!exam) return [];
+        return getExamVersions(input.examId, ctx.user.id);
+      }),
+
+    versionCreate: publicProcedure
+      .input(z.object({
+        examId: z.number().int().positive(),
+        title: z.string().min(1),
+        snapshotJson: z.string().min(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        const exam = await getExamById(input.examId, ctx.user.id);
+        if (!exam) throw new Error("Exam not found");
+        return createExamVersion({
+          examId: input.examId,
+          userId: ctx.user.id,
+          title: input.title,
+          snapshotJson: input.snapshotJson,
+        } as any);
+      }),
+
+    versionRestore: publicProcedure
+      .input(z.object({
+        examId: z.number().int().positive(),
+        versionId: z.number().int().positive(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        const exam = await getExamById(input.examId, ctx.user.id);
+        if (!exam) throw new Error("Exam not found");
+        const versions = await getExamVersions(input.examId, ctx.user.id);
+        const target = versions.find((v) => v.id === input.versionId);
+        if (!target) throw new Error("Version not found");
+        
+        const payload = JSON.parse(target.snapshotJson);
+        if (payload.exam) {
+          await updateExam(input.examId, ctx.user.id, {
+            title: payload.exam.title,
+            subject: payload.exam.subject,
+            grade: payload.exam.grade,
+            examType: payload.exam.examType,
+            durationMinutes: payload.exam.durationMinutes,
+            instructions: payload.exam.instructions,
+            totalMarks: payload.exam.totalMarks,
+          });
+        }
+        if (Array.isArray(payload.questions)) {
+          await deleteExamQuestions(input.examId);
+          for (const q of payload.questions) {
+            await createExamQuestion({
+              examId: input.examId,
+              orderIndex: q.orderIndex ?? 0,
+              questionType: q.questionType ?? "multiple_choice",
+              prompt: q.prompt,
+              options: q.options,
+              correctAnswer: q.correctAnswer,
+              explanation: q.explanation,
+              imageUrl: q.imageUrl,
+              marks: q.marks ?? 1,
+            });
+          }
+        }
+        return { success: true } as const;
+      }),
+  }),
+
+  questionBank: router({
+    list: publicProcedure.query(async ({ ctx }) => {
+      if (!ctx.user) return [];
+      return getQuestionBankByUserId(ctx.user.id);
+    }),
+
+    search: publicProcedure
+      .input(z.object({
+        query: z.string().max(500).optional(),
+        subject: z.string().max(255).optional(),
+        grade: z.string().max(100).optional(),
+        questionType: z.string().max(50).optional(),
+        difficulty: z.string().max(30).optional(),
+      }))
+      .query(async ({ ctx, input }) => {
+        if (!ctx.user) return [];
+        return searchQuestionBank(ctx.user.id, input);
+      }),
+
+    importFromExam: publicProcedure
+      .input(z.object({
+        examId: z.number().int().positive(),
+        questionIds: z.array(z.number().int().positive()).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        const exam = await getExamById(input.examId, ctx.user.id);
+        if (!exam) throw new Error("Exam not found");
+        const questions = await getExamQuestions(input.examId);
+        const selected = input.questionIds?.length ? questions.filter((question) => input.questionIds!.includes(question.id)) : questions;
+        for (const question of selected) {
+          await createQuestionBankItem({
+            userId: ctx.user.id,
+            subject: exam.subject,
+            grade: exam.grade,
+            questionType: question.questionType,
+            difficulty: "medium",
+            prompt: question.prompt,
+            options: question.options,
+            correctAnswer: question.correctAnswer,
+            explanation: question.explanation,
+            imageUrl: question.imageUrl,
+            marks: question.marks,
+          } as any);
+        }
+        return { success: true, importedCount: selected.length } as const;
+      }),
+
+    create: publicProcedure
+      .input(z.object({
+        subject: z.string().max(255).optional(),
+        grade: z.string().max(100).optional(),
+        questionType: z.string().max(50).default("multiple_choice"),
+        difficulty: z.string().max(30).default("medium"),
+        prompt: z.string().min(1),
+        options: z.string().optional(),
+        correctAnswer: z.string().optional(),
+        explanation: z.string().optional(),
+        imageUrl: z.string().max(2000).optional(),
+        marks: z.number().int().positive().default(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        return createQuestionBankItem({ userId: ctx.user.id, ...input } as any);
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        return deleteQuestionBankItem(input.id, ctx.user.id);
+      }),
   }),
 
   backup: router({
     export: publicProcedure.query(async ({ ctx }) => {
       if (!ctx.user) throw new Error("Unauthorized");
-      const [lessons, library, exams, settings] = await Promise.all([
-        getLessonPlansByUserId(ctx.user.id),
-        getLibraryBooksByUserId(ctx.user.id),
-        getExamsByUserId(ctx.user.id),
-        getUserSettings(ctx.user.id),
+      const userId = ctx.user.id;
+      const [lessons, library, exams, settings, questionBankItems] = await Promise.all([
+        getLessonPlansByUserId(userId),
+        getLibraryBooksByUserId(userId),
+        getExamsByUserId(userId),
+        getUserSettings(userId),
+        getQuestionBankByUserId(userId),
       ]);
       const examQuestions = (await Promise.all(exams.map((exam) => getExamQuestions(exam.id)))).flat();
-      return { version: 1, exportedAt: new Date().toISOString(), lessons, library, exams, examQuestions, settings };
+      const examVersions = (await Promise.all(exams.map((exam) => getExamVersions(exam.id, userId)))).flat();
+      return { version: 2, exportedAt: new Date().toISOString(), lessons, library, exams, examQuestions, examVersions, questionBank: questionBankItems, settings };
     }),
 
     import: publicProcedure
@@ -386,6 +540,8 @@ export const appRouter = router({
         library: z.array(z.object({ title: z.string() }).passthrough()).default([]),
         exams: z.array(z.object({ title: z.string() }).passthrough()).default([]),
         examQuestions: z.array(z.object({ examId: z.number(), prompt: z.string() }).passthrough()).default([]),
+        examVersions: z.array(z.object({ examId: z.number(), title: z.string(), snapshotJson: z.string() }).passthrough()).default([]),
+        questionBank: z.array(z.object({ prompt: z.string() }).passthrough()).default([]),
         settings: z.record(z.string(), z.any()).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -409,6 +565,16 @@ export const appRouter = router({
           if (!newExamId) continue;
           const { id, examId, createdAt, updatedAt, ...questionData } = question as any;
           await createExamQuestion({ examId: newExamId, ...questionData } as any);
+        }
+        for (const version of input.examVersions) {
+          const newExamId = examIdMap.get(Number(version.examId));
+          if (!newExamId) continue;
+          const { id, examId, userId, createdAt, versionNumber, ...versionData } = version as any;
+          await createExamVersion({ examId: newExamId, userId: ctx.user.id, versionNumber: versionNumber || 1, ...versionData } as any);
+        }
+        for (const item of input.questionBank) {
+          const { id, userId, createdAt, updatedAt, ...questionData } = item as any;
+          await createQuestionBankItem({ userId: ctx.user.id, ...questionData } as any);
         }
         if (input.settings) await upsertUserSettings(ctx.user.id, input.settings as any);
         return { success: true } as const;

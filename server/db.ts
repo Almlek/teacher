@@ -1,6 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, lessonPlans, libraryBooks, userSettings, exams, examQuestions, InsertLessonPlan, InsertLibraryBook, InsertUserSettings, InsertExam, InsertExamQuestion } from "../drizzle/schema";
+import { InsertUser, users, lessonPlans, libraryBooks, userSettings, exams, examQuestions, examVersions, questionBank, InsertLessonPlan, InsertLibraryBook, InsertUserSettings, InsertExam, InsertExamQuestion, InsertExamVersion, InsertQuestionBankItem } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -196,6 +196,52 @@ export async function deleteExamQuestion(id: number, examId: number) {
   return await db.delete(examQuestions).where(and(eq(examQuestions.id, id), eq(examQuestions.examId, examId)));
 }
 
+// Exam Versions & Auto-save queries
+export async function getExamVersions(examId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(examVersions).where(and(eq(examVersions.examId, examId), eq(examVersions.userId, userId))).orderBy(desc(examVersions.versionNumber));
+}
+
+export async function createExamVersion(version: InsertExamVersion) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const latest = await db.select({ versionNumber: examVersions.versionNumber }).from(examVersions).where(eq(examVersions.examId, version.examId)).orderBy(desc(examVersions.versionNumber)).limit(1);
+  const nextVersion = (latest[0]?.versionNumber ?? 0) + 1;
+  return await db.insert(examVersions).values({ ...version, versionNumber: nextVersion });
+}
+
+// Question Bank queries
+export async function getQuestionBankByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(questionBank).where(eq(questionBank.userId, userId)).orderBy(desc(questionBank.id));
+}
+
+export async function searchQuestionBank(userId: number, filters: { query?: string; subject?: string; grade?: string; questionType?: string; difficulty?: string }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [eq(questionBank.userId, userId)];
+  if (filters.query?.trim()) conditions.push(like(questionBank.prompt, `%${filters.query.trim()}%`));
+  if (filters.subject) conditions.push(eq(questionBank.subject, filters.subject));
+  if (filters.grade) conditions.push(eq(questionBank.grade, filters.grade));
+  if (filters.questionType) conditions.push(eq(questionBank.questionType, filters.questionType));
+  if (filters.difficulty) conditions.push(eq(questionBank.difficulty, filters.difficulty));
+  return await db.select().from(questionBank).where(and(...conditions)).orderBy(desc(questionBank.id));
+}
+
+export async function createQuestionBankItem(item: InsertQuestionBankItem) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(questionBank).values(item);
+}
+
+export async function deleteQuestionBankItem(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.delete(questionBank).where(and(eq(questionBank.id, id), eq(questionBank.userId, userId)));
+}
+
 // Library Books queries
 export async function addLibraryBook(book: InsertLibraryBook) {
   const db = await getDb();
@@ -228,6 +274,8 @@ export async function getUserSettings(userId: number) {
 export async function deleteAllUserData(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  await db.delete(questionBank).where(eq(questionBank.userId, userId));
+  await db.delete(examVersions).where(eq(examVersions.userId, userId));
   await db.delete(exams).where(eq(exams.userId, userId));
   await db.delete(lessonPlans).where(eq(lessonPlans.userId, userId));
   await db.delete(libraryBooks).where(eq(libraryBooks.userId, userId));

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   create: { mutateAsync: vi.fn(), isPending: false },
   update: { mutateAsync: vi.fn(), isPending: false },
   replace: { mutateAsync: vi.fn(), isPending: false },
+  versionCreate: { mutateAsync: vi.fn(), isPending: false },
+  versionRestore: { mutateAsync: vi.fn(), isPending: false },
   examData: { exam: { id: 1, title: "اختبار الصور", subject: "العلوم", grade: "السادس", examType: "comprehensive", durationMinutes: null, instructions: "أجب.", totalMarks: 1 }, questions: [{ orderIndex: 0, questionType: "multiple_choice", prompt: "ما هذا الرسم؟", options: "", correctAnswer: "", explanation: "", imageUrl: null, marks: 1 }] },
 }));
 
@@ -25,12 +27,20 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/trpc", () => ({
   trpc: {
     settings: { get: { useQuery: () => ({ data: null }) } },
+    useUtils: () => ({ exams: { versionsList: { invalidate: vi.fn() } }, questionBank: { list: { invalidate: vi.fn() } } }),
     exams: {
-      get: { useQuery: () => ({ data: mocks.examData, isLoading: false }) },
+      get: { useQuery: () => ({ data: mocks.examData, isLoading: false, refetch: vi.fn() }) },
       create: { useMutation: () => mocks.create },
       update: { useMutation: () => mocks.update },
       questionsReplace: { useMutation: () => mocks.replace },
       questionImageUpload: { useMutation: () => mocks.upload },
+      versionsList: { useQuery: () => ({ data: [], isLoading: false }) },
+      versionCreate: { useMutation: () => mocks.versionCreate },
+      versionRestore: { useMutation: () => mocks.versionRestore },
+    },
+    questionBank: {
+      list: { useQuery: () => ({ data: [], isLoading: false }) },
+      create: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }) },
     },
   },
 }));
@@ -40,6 +50,7 @@ import ExamEditor from "./ExamEditor";
 describe("exam editor question illustrations", () => {
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -55,5 +66,20 @@ describe("exam editor question illustrations", () => {
 
     await waitFor(() => expect(mocks.upload.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ fileName: "diagram.png", fileType: "image/png" })));
     expect(await screen.findByAltText("رسم توضيحي للسؤال 1")).toBeTruthy();
+  });
+
+  it("auto-saves edited exam content and creates a version", async () => {
+    vi.useFakeTimers();
+    window.history.pushState({}, "", "/exam-editor?examId=1");
+    const { getByPlaceholderText } = render(<ExamEditor />);
+    fireEvent.change(getByPlaceholderText("اكتب السؤال هنا..."), { target: { value: "ما وظيفة الرسم؟" } });
+    await act(async () => {
+      vi.advanceTimersByTime(1300);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mocks.update.mutateAsync).toHaveBeenCalled();
+    expect(mocks.replace.mutateAsync).toHaveBeenCalled();
+    expect(mocks.versionCreate.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ examId: 1, title: "اختبار الصور" }));
   });
 });

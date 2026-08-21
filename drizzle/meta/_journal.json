@@ -57,6 +57,13 @@
       "when": 1787322276577,
       "tag": "0007_concerned_hardball",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1787323196692,
+      "tag": "0008_motionless_sasquatch",
+      "breakpoints": true
     }
   ]
 }

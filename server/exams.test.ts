@@ -118,14 +118,48 @@ describe("exams router", () => {
     expect(vi.mocked(generateExamFromLesson)).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("الماء"), difficulty: "hard", preferredType: "essay" }));
   });
 
+  it("creates and restores an exam version, then manages a reusable bank question", async () => {
+    const caller = appRouter.createCaller(createAuthContext());
+    const created = await caller.exams.create({ title: "اختبار الإصدارات", subject: "العلوم", grade: "السادس", totalMarks: 1 });
+    await caller.exams.questionsReplace({ examId: created.id, questions: [{ orderIndex: 0, questionType: "true_false", prompt: "الماء سائل.", options: "", correctAnswer: "صح", explanation: "", marks: 1 }] });
+    const version = await caller.exams.versionCreate({
+      examId: created.id,
+      title: "اختبار الإصدارات",
+      snapshotJson: JSON.stringify({ exam: { title: "اختبار الإصدارات", subject: "العلوم", grade: "السادس", examType: "comprehensive", instructions: "", totalMarks: 1 }, questions: [{ orderIndex: 0, questionType: "true_false", prompt: "الماء سائل.", options: "", correctAnswer: "صح", explanation: "", marks: 1 }] }),
+    });
+    expect(version).toBeTruthy();
+    await caller.exams.questionsReplace({ examId: created.id, questions: [{ orderIndex: 0, questionType: "essay", prompt: "سؤال مؤقت.", options: "", correctAnswer: "", explanation: "", marks: 2 }] });
+    const versions = await caller.exams.versionsList({ examId: created.id });
+    expect(versions.length).toBeGreaterThan(0);
+    await caller.exams.versionRestore({ examId: created.id, versionId: versions[0]!.id });
+    const restored = await caller.exams.get({ id: created.id });
+    expect(restored?.questions[0]?.prompt).toBe("الماء سائل.");
+
+    const bankItem = await caller.questionBank.create({ subject: "العلوم", grade: "السادس", questionType: "true_false", difficulty: "easy", prompt: "الماء سائل.", correctAnswer: "صح", marks: 1 });
+    const bank = await caller.questionBank.list();
+    expect(bank.some((item) => item.prompt === "الماء سائل.")).toBe(true);
+    const searched = await caller.questionBank.search({ query: "الماء", subject: "العلوم", difficulty: "easy" });
+    expect(searched.some((item) => item.prompt === "الماء سائل.")).toBe(true);
+    const imported = await caller.questionBank.importFromExam({ examId: created.id, questionIds: [restored!.questions[0]!.id] });
+    expect(imported.importedCount).toBe(1);
+    for (const item of (await caller.questionBank.list()).filter((candidate) => candidate.prompt === "الماء سائل." && candidate.subject === "العلوم" && candidate.grade === "السادس")) {
+      await caller.questionBank.delete({ id: item.id });
+    }
+    if ("insertId" in (bankItem as object)) {
+      // The list assertion above verifies persistence even when the driver omits insertId.
+    }
+  });
+
   it("returns a backup payload with the required collections", async () => {
     const caller = appRouter.createCaller(createAuthContext());
     const backup = await caller.backup.export();
-    expect(backup.version).toBe(1);
+    expect(backup.version).toBe(2);
     expect(Array.isArray(backup.lessons)).toBe(true);
     expect(Array.isArray(backup.library)).toBe(true);
     expect(Array.isArray(backup.exams)).toBe(true);
     expect(Array.isArray(backup.examQuestions)).toBe(true);
+    expect(Array.isArray(backup.examVersions)).toBe(true);
+    expect(Array.isArray(backup.questionBank)).toBe(true);
   });
 
   it("restores an exam together with its questions from a backup", async () => {

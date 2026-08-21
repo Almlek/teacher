@@ -5,6 +5,7 @@ import QuestionOrderControls from "@/components/QuestionOrderControls";
 import LoadingState from "@/components/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,8 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import type { ExamExportData } from "@/lib/examExport";
 import { moveItem, withSequentialOrder } from "@/lib/examEditorUtils";
-import { ArrowRight, ClipboardCheck, ImagePlus, Loader2, Plus, Save, X } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import { ArrowRight, BookMarked, CheckCircle2, ClipboardCheck, Clock3, History, ImagePlus, Loader2, Plus, RotateCcw, Save, X } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ type QuestionDraft = {
   correctAnswer: string;
   explanation: string;
   imageUrl: string;
+  difficulty: string;
   marks: number;
 };
 
@@ -36,6 +38,7 @@ const emptyQuestion = (orderIndex: number): QuestionDraft => ({
   correctAnswer: "",
   explanation: "",
   imageUrl: "",
+  difficulty: "medium",
   marks: 1,
 });
 
@@ -46,6 +49,12 @@ export default function ExamEditor() {
   const examQuery = trpc.exams.get.useQuery({ id: examId }, { enabled: examId > 0 });
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
+  const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [bankQuestionIndex, setBankQuestionIndex] = useState<number | null>(null);
+  const [bankPickerOpen, setBankPickerOpen] = useState(false);
+  const skipNextAutoSave = useRef(false);
+  const lastSnapshot = useRef("");
   const [formData, setFormData] = useState({
     title: "",
     subject: "",
@@ -68,15 +77,15 @@ export default function ExamEditor() {
   useEffect(() => {
     const data = examQuery.data;
     if (!data) return;
-    setFormData({
+    const hydratedFormData = {
       title: data.exam.title,
       subject: data.exam.subject || "",
       grade: data.exam.grade || "",
       examType: data.exam.examType,
       durationMinutes: data.exam.durationMinutes ? String(data.exam.durationMinutes) : "",
       instructions: data.exam.instructions || "",
-    });
-    setQuestions(data.questions.length > 0 ? data.questions.map((question) => ({
+    };
+    const hydratedQuestions = data.questions.length > 0 ? data.questions.map((question) => ({
       orderIndex: question.orderIndex,
       questionType: question.questionType,
       prompt: question.prompt,
@@ -84,14 +93,28 @@ export default function ExamEditor() {
       correctAnswer: question.correctAnswer || "",
       explanation: question.explanation || "",
       imageUrl: question.imageUrl || "",
+      difficulty: "medium",
       marks: question.marks,
-    })) : [emptyQuestion(0)]);
+    })) : [emptyQuestion(0)];
+    setFormData(hydratedFormData);
+    skipNextAutoSave.current = true;
+    lastSnapshot.current = JSON.stringify({
+      exam: { ...hydratedFormData, durationMinutes: hydratedFormData.durationMinutes ? Number(hydratedFormData.durationMinutes) : null, totalMarks: hydratedQuestions.reduce((sum, question) => sum + (Number(question.marks) || 0), 0) },
+      questions: hydratedQuestions,
+    });
+    setQuestions(hydratedQuestions);
   }, [examQuery.data]);
 
   const createExamMutation = trpc.exams.create.useMutation();
   const updateExamMutation = trpc.exams.update.useMutation();
   const replaceQuestionsMutation = trpc.exams.questionsReplace.useMutation();
   const uploadQuestionImageMutation = trpc.exams.questionImageUpload.useMutation();
+  const versionsQuery = trpc.exams.versionsList.useQuery({ examId }, { enabled: examId > 0 });
+  const createVersionMutation = trpc.exams.versionCreate.useMutation();
+  const restoreVersionMutation = trpc.exams.versionRestore.useMutation();
+  const saveToBankMutation = trpc.questionBank.create.useMutation();
+  const questionBankQuery = trpc.questionBank.list.useQuery();
+  const utils = trpc.useUtils();
   const totalMarks = questions.reduce((sum, question) => sum + (Number(question.marks) || 0), 0);
   const exportData: ExamExportData = {
     title: formData.title,
@@ -152,16 +175,22 @@ export default function ExamEditor() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = async () => {
+  const saveExam = async ({ silent = false, navigateAfterSave = false } = {}) => {
     if (!formData.title.trim()) {
-      toast.error("يرجى إدخال عنوان الاختبار");
+      if (!silent) toast.error("يرجى إدخال عنوان الاختبار");
       return;
     }
     const validQuestions = questions.filter((question) => question.prompt.trim());
     if (validQuestions.length === 0) {
-      toast.error("أضف سؤالاً واحداً على الأقل قبل الحفظ");
+      if (!silent) toast.error("أضف سؤالاً واحداً على الأقل قبل الحفظ");
       return;
     }
+    const snapshot = JSON.stringify({
+      exam: { ...formData, durationMinutes: formData.durationMinutes ? Number(formData.durationMinutes) : null, totalMarks },
+      questions: validQuestions.map((question, index) => ({ ...question, orderIndex: index })),
+    });
+    if (silent && snapshot === lastSnapshot.current) return;
+    if (silent) setAutoSaveState("saving");
     setIsSaving(true);
     try {
       const examPayload = {
@@ -186,13 +215,85 @@ export default function ExamEditor() {
         examId: savedExamId,
         questions: validQuestions.map((question, index) => ({ ...question, orderIndex: index })),
       });
-      toast.success("تم حفظ الاختبار والأسئلة بنجاح");
-      setLocation("/exams");
+      await createVersionMutation.mutateAsync({ examId: savedExamId, title: formData.title.trim(), snapshotJson: snapshot });
+      lastSnapshot.current = snapshot;
+      setLastSavedAt(new Date());
+      setAutoSaveState("saved");
+      void utils.exams.versionsList.invalidate({ examId: savedExamId });
+      if (!silent) toast.success("تم حفظ الاختبار والأسئلة بنجاح");
+      if (navigateAfterSave) setLocation("/exams");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تعذر حفظ الاختبار");
+      setAutoSaveState("error");
+      if (!silent) toast.error(error instanceof Error ? error.message : "تعذر حفظ الاختبار");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  useEffect(() => {
+    if (examId <= 0 || examQuery.isLoading || !examQuery.data || skipNextAutoSave.current || isSaving) {
+      skipNextAutoSave.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => { void saveExam({ silent: true }); }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [examId, formData, questions]);
+
+  const handleRestoreVersion = async (versionId: number) => {
+    if (!window.confirm("هل تريد استعادة هذا الإصدار؟ سيتم استبدال محتوى الاختبار الحالي.")) return;
+    try {
+      await restoreVersionMutation.mutateAsync({ examId, versionId });
+      await examQuery.refetch();
+      toast.success("تمت استعادة الإصدار بنجاح");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر استعادة الإصدار");
+    }
+  };
+
+  const handleSave = () => { void saveExam({ navigateAfterSave: true }); };
+
+  const handleSaveQuestionToBank = async () => {
+    if (bankQuestionIndex === null) return;
+    const question = questions[bankQuestionIndex];
+    if (!question?.prompt.trim()) {
+      toast.error("اكتب نص السؤال قبل حفظه في البنك");
+      return;
+    }
+    try {
+      await saveToBankMutation.mutateAsync({
+        subject: formData.subject || undefined,
+        grade: formData.grade || undefined,
+        questionType: question.questionType,
+        difficulty: question.difficulty,
+        prompt: question.prompt.trim(),
+        options: question.options || undefined,
+        correctAnswer: question.correctAnswer || undefined,
+        explanation: question.explanation || undefined,
+        imageUrl: question.imageUrl || undefined,
+        marks: Number(question.marks) || 1,
+      });
+      await utils.questionBank.list.invalidate();
+      setBankQuestionIndex(null);
+      toast.success("تم حفظ السؤال في بنك الأسئلة");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر حفظ السؤال في البنك");
+    }
+  };
+
+  const handleInsertBankQuestion = (item: NonNullable<typeof questionBankQuery.data>[number]) => {
+    setQuestions((previous) => withSequentialOrder([...previous, {
+      orderIndex: previous.length,
+      questionType: item.questionType,
+      prompt: item.prompt,
+      options: item.options || "",
+      correctAnswer: item.correctAnswer || "",
+      explanation: item.explanation || "",
+      imageUrl: item.imageUrl || "",
+      difficulty: item.difficulty,
+      marks: item.marks,
+    }]));
+    setBankPickerOpen(false);
+    toast.success("تم إدراج السؤال من بنك الأسئلة");
   };
 
   if (examQuery.isLoading) {
@@ -212,6 +313,12 @@ export default function ExamEditor() {
               <p className="mt-2 text-muted-foreground">ابنِ الأسئلة، وزّع الدرجات، واحفظ نسخة جاهزة للطباعة أو العرض الإلكتروني.</p>
             </div>
               <div className="flex flex-wrap items-center gap-2" data-print-hide>
+                <div className="flex items-center gap-1.5 rounded-xl border border-border/70 bg-background px-3 py-2 text-xs font-semibold text-muted-foreground" aria-live="polite">
+                  {autoSaveState === "saving" && <><Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />جاري الحفظ التلقائي...</>}
+                  {autoSaveState === "saved" && <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />محفوظ تلقائياً{lastSavedAt ? ` · ${lastSavedAt.toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" })}` : ""}</>}
+                  {autoSaveState === "error" && <><Clock3 className="h-3.5 w-3.5 text-destructive" />تعذر الحفظ التلقائي</>}
+                  {autoSaveState === "idle" && <><Clock3 className="h-3.5 w-3.5" />الحفظ التلقائي بعد التعديل</>}
+                </div>
                 <ExamExportActions exam={exportData} disabled={!formData.title.trim() || !questions.some((question) => question.prompt.trim())} />
                 <Button onClick={handleSave} disabled={isSaving} className="gap-2 rounded-xl px-5"><Save className="h-4 w-4" />{isSaving ? "جاري الحفظ..." : "حفظ الاختبار"}</Button>
               </div>
@@ -229,6 +336,13 @@ export default function ExamEditor() {
             </CardContent>
           </Card>
 
+          <Card data-print-hide>
+            <CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" />الحفظ التلقائي وسجل الإصدارات</CardTitle><CardDescription>يُنشئ المحرر نسخة قابلة للاستعادة بعد كل تعديل محفوظ.</CardDescription></div><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><History className="h-5 w-5" /></div></div></CardHeader>
+            <CardContent>
+              {examId <= 0 ? <p className="rounded-xl bg-muted/40 p-4 text-sm text-muted-foreground">سيظهر سجل الإصدارات بعد حفظ الاختبار لأول مرة.</p> : versionsQuery.isLoading ? <p className="rounded-xl bg-muted/40 p-4 text-sm text-muted-foreground">جاري تحميل الإصدارات...</p> : versionsQuery.data?.length ? <div className="space-y-2">{versionsQuery.data.map((version) => <div key={version.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/15 p-3"><div><p className="font-bold">الإصدار {version.versionNumber} · {version.title}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(version.createdAt).toLocaleString("ar")}</p></div><Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => handleRestoreVersion(version.id)} disabled={restoreVersionMutation.isPending}><RotateCcw className="h-3.5 w-3.5" />{restoreVersionMutation.isPending ? "جاري الاستعادة..." : "استعادة"}</Button></div>)}</div> : <p className="rounded-xl bg-muted/40 p-4 text-sm text-muted-foreground">لا توجد إصدارات محفوظة بعد.</p>}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>محرر الأسئلة</CardTitle><CardDescription>{questions.length} أسئلة · {totalMarks} درجات · يمكنك تعديل أي سؤال ونقله قبل الحفظ أو التصدير</CardDescription></div><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><ClipboardCheck className="h-5 w-5" /></div></div></CardHeader>
             <CardContent className="space-y-5">
@@ -236,12 +350,15 @@ export default function ExamEditor() {
                 <div key={`${question.orderIndex}-${index}`} className="rounded-2xl border border-border/70 bg-muted/15 p-4 sm:p-5">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">السؤال {index + 1}</span>
-                    <QuestionOrderControls
-                      index={index}
-                      total={questions.length}
-                      onMove={(direction) => moveQuestion(index, direction)}
-                      onDelete={() => setQuestions((previous) => withSequentialOrder(previous.filter((_, questionIndex) => questionIndex !== index)))}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Button type="button" variant="outline" size="sm" className="gap-1.5 rounded-lg" onClick={() => setBankQuestionIndex(index)} disabled={!question.prompt.trim()}><BookMarked className="h-3.5 w-3.5" />حفظ في البنك</Button>
+                      <QuestionOrderControls
+                        index={index}
+                        total={questions.length}
+                        onMove={(direction) => moveQuestion(index, direction)}
+                        onDelete={() => setQuestions((previous) => withSequentialOrder(previous.filter((_, questionIndex) => questionIndex !== index)))}
+                      />
+                    </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-[1fr_180px_100px]">
                     <div className="space-y-2 sm:col-span-1"><Label>نص السؤال</Label><Textarea value={question.prompt} onChange={(event) => updateQuestion(index, "prompt", event.target.value)} rows={3} placeholder="اكتب السؤال هنا..." /></div>
@@ -263,9 +380,26 @@ export default function ExamEditor() {
                   </div>
                 </div>
               ))}
-              <Button type="button" variant="outline" onClick={() => setQuestions((previous) => [...previous, emptyQuestion(previous.length)])} className="w-full gap-2 rounded-xl"><Plus className="h-4 w-4" /> إضافة سؤال</Button>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Button type="button" variant="outline" onClick={() => setQuestions((previous) => [...previous, emptyQuestion(previous.length)])} className="w-full gap-2 rounded-xl"><Plus className="h-4 w-4" /> إضافة سؤال</Button>
+                <Button type="button" variant="outline" onClick={() => setBankPickerOpen(true)} className="w-full gap-2 rounded-xl"><BookMarked className="h-4 w-4" /> إدراج من بنك الأسئلة</Button>
+              </div>
             </CardContent>
           </Card>
+
+          <Dialog open={bankQuestionIndex !== null} onOpenChange={(open) => { if (!open) setBankQuestionIndex(null); }}>
+            <DialogContent dir="rtl">
+              <DialogHeader><DialogTitle>حفظ السؤال في بنك الأسئلة</DialogTitle><DialogDescription>سيتم حفظ نص السؤال وإجابته وتصنيفه والصورة المرفقة إن وجدت.</DialogDescription></DialogHeader>
+              {bankQuestionIndex !== null && <div className="space-y-4"><div className="rounded-xl bg-muted/40 p-4 text-sm leading-7">{questions[bankQuestionIndex]?.prompt}</div><Button onClick={() => void handleSaveQuestionToBank()} disabled={saveToBankMutation.isPending} className="w-full gap-2">{saveToBankMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookMarked className="h-4 w-4" />}حفظ في البنك</Button></div>}
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={bankPickerOpen} onOpenChange={setBankPickerOpen}>
+            <DialogContent dir="rtl" className="max-w-2xl">
+              <DialogHeader><DialogTitle>إدراج سؤال من بنك الأسئلة</DialogTitle><DialogDescription>اختر سؤالاً لإضافته إلى نهاية الاختبار، ثم يمكنك تعديله قبل الحفظ.</DialogDescription></DialogHeader>
+              <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">{questionBankQuery.isLoading ? <p className="py-8 text-center text-muted-foreground">جاري تحميل البنك...</p> : questionBankQuery.data?.length ? questionBankQuery.data.map((item) => <button type="button" key={item.id} onClick={() => handleInsertBankQuestion(item)} className="w-full rounded-xl border border-border/70 bg-muted/10 p-4 text-right transition hover:border-primary/50 hover:bg-primary/[0.04]"><div className="mb-2 flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-full bg-primary/10 px-2 py-1 text-primary">{item.subject || "بدون مادة"}</span><span className="rounded-full bg-muted px-2 py-1 text-muted-foreground">{item.questionType}</span></div><p className="font-bold leading-7">{item.prompt}</p></button>) : <p className="py-8 text-center text-muted-foreground">لا توجد أسئلة محفوظة. أضف سؤالاً من بنك الأسئلة أولاً.</p>}</div>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
       </div>

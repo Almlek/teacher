@@ -11,6 +11,7 @@ const links = [
   { href: "/library", label: "المكتبة" },
   { href: "/lessons", label: "الدروس المحفوظة" },
   { href: "/exams", label: "الاختبارات" },
+  { href: "/question-bank", label: "بنك الأسئلة" },
   { href: "/archive", label: "الأرشيف" },
 ];
 
@@ -27,6 +28,9 @@ export default function PublicNav() {
     }
     if (href === "/settings") {
       void utils.settings.get.prefetch();
+    }
+    if (href === "/question-bank") {
+      void utils.questionBank.list.prefetch();
     }
   };
 

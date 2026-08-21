@@ -101,6 +101,47 @@ export const examQuestions = mysqlTable("exam_questions", {
 });
 
 export type ExamQuestion = typeof examQuestions.$inferSelect;
+
+/**
+ * Exam Versions Table (Auto-save / Version History)
+ * Stores snapshot revisions of exams and their questions for restoration.
+ */
+export const examVersions = mysqlTable("exam_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  examId: int("examId").notNull().references(() => exams.id, { onDelete: "cascade" }),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  versionNumber: int("versionNumber").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  snapshotJson: text("snapshotJson").notNull(), // JSON payload of exam metadata & questions
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ExamVersion = typeof examVersions.$inferSelect;
+export type InsertExamVersion = typeof examVersions.$inferInsert;
+
+/**
+ * Question Bank Table
+ * Stores reusable questions categorized by subject, grade, and question type.
+ */
+export const questionBank = mysqlTable("question_bank", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  subject: varchar("subject", { length: 255 }),
+  grade: varchar("grade", { length: 100 }),
+  questionType: varchar("questionType", { length: 50 }).default("multiple_choice").notNull(),
+  difficulty: varchar("difficulty", { length: 30 }).default("medium").notNull(),
+  prompt: text("prompt").notNull(),
+  options: text("options"),
+  correctAnswer: text("correctAnswer"),
+  explanation: text("explanation"),
+  imageUrl: text("imageUrl"),
+  marks: int("marks").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type QuestionBankItem = typeof questionBank.$inferSelect;
+export type InsertQuestionBankItem = typeof questionBank.$inferInsert;
 export type InsertExamQuestion = typeof examQuestions.$inferInsert;
 
 /**
