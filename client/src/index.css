@@ -238,3 +238,98 @@
     text-decoration: none !important;
   }
 }
+
+
+/* Printable exam sheet */
+[data-print-only] {
+  display: none;
+}
+
+@media print {
+  [data-print-only] {
+    display: block !important;
+  }
+
+  .exam-print-preview {
+    direction: rtl;
+    color: #172033;
+    font-family: Tahoma, Arial, sans-serif;
+    line-height: 1.85;
+    width: 100%;
+  }
+
+  .exam-print-header {
+    border: 2px solid #2563eb;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+
+  .exam-print-header h1 {
+    margin: 0 0 8px;
+    color: #1d4ed8;
+    font-size: 24px;
+  }
+
+  .exam-print-meta,
+  .exam-print-student-line {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 13px;
+  }
+
+  .exam-print-student-line {
+    justify-content: space-between;
+    border-bottom: 1px solid #94a3b8;
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+  }
+
+  .exam-print-instructions {
+    background: #eff6ff;
+    border-right: 4px solid #2563eb;
+    padding: 9px 13px;
+    margin-bottom: 18px;
+    white-space: pre-line;
+  }
+
+  .exam-print-question {
+    border-bottom: 1px solid #cbd5e1;
+    padding: 12px 0 16px;
+    break-inside: avoid;
+  }
+
+  .exam-print-question h2 {
+    color: #1e3a8a;
+    font-size: 16px;
+    margin: 0 0 6px;
+  }
+
+  .exam-print-question h2 small {
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .exam-print-question p {
+    font-weight: 600;
+    margin: 0 0 5px;
+    white-space: pre-line;
+  }
+
+  .exam-print-question ol {
+    margin: 4px 0 0;
+    padding-right: 22px;
+  }
+
+  .exam-print-footer {
+    color: #64748b;
+    border-top: 1px solid #cbd5e1;
+    padding-top: 10px;
+    margin-top: 22px;
+    text-align: center;
+    font-size: 12px;
+  }
+}

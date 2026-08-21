@@ -1,4 +1,6 @@
 import PublicNav from "@/components/PublicNav";
+import ExamExportActions from "@/components/ExamExportActions";
+import ExamPrintPreview from "@/components/ExamPrintPreview";
 import LoadingState from "@/components/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
+import type { ExamExportData } from "@/lib/examExport";
 import { ArrowRight, ClipboardCheck, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -83,6 +86,16 @@ export default function ExamEditor() {
   const updateExamMutation = trpc.exams.update.useMutation();
   const replaceQuestionsMutation = trpc.exams.questionsReplace.useMutation();
   const totalMarks = questions.reduce((sum, question) => sum + (Number(question.marks) || 0), 0);
+  const exportData: ExamExportData = {
+    title: formData.title,
+    subject: formData.subject,
+    grade: formData.grade,
+    examType: formData.examType,
+    durationMinutes: formData.durationMinutes ? Number(formData.durationMinutes) : null,
+    instructions: formData.instructions,
+    totalMarks,
+    questions,
+  };
 
   const handleFormChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
@@ -142,6 +155,7 @@ export default function ExamEditor() {
 
   return (
     <div className="min-h-screen bg-muted/20">
+      <div data-print-hide>
       <PublicNav />
       <main className="container py-10 sm:py-14">
         <div className="mx-auto max-w-5xl space-y-8">
@@ -151,7 +165,10 @@ export default function ExamEditor() {
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">محرر الاختبارات</h1>
               <p className="mt-2 text-muted-foreground">ابنِ الأسئلة، وزّع الدرجات، واحفظ نسخة جاهزة للطباعة أو العرض الإلكتروني.</p>
             </div>
-            <Button onClick={handleSave} disabled={isSaving} className="gap-2 rounded-xl px-5"><Save className="h-4 w-4" />{isSaving ? "جاري الحفظ..." : "حفظ الاختبار"}</Button>
+              <div className="flex flex-wrap items-center gap-2" data-print-hide>
+                <ExamExportActions exam={exportData} disabled={!formData.title.trim() || !questions.some((question) => question.prompt.trim())} />
+                <Button onClick={handleSave} disabled={isSaving} className="gap-2 rounded-xl px-5"><Save className="h-4 w-4" />{isSaving ? "جاري الحفظ..." : "حفظ الاختبار"}</Button>
+              </div>
           </div>
 
           <Card>
@@ -186,6 +203,8 @@ export default function ExamEditor() {
           </Card>
         </div>
       </main>
+      </div>
+      <ExamPrintPreview exam={exportData} />
     </div>
   );
 }
