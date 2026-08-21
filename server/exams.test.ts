@@ -162,6 +162,11 @@ describe("exams router", () => {
     expect(bank.some((item) => item.prompt === "الماء سائل." && item.tags === "فصل أول, مهم")).toBe(true);
     const searched = await caller.questionBank.search({ query: "الماء", tag: "مهم" });
     expect(searched.some((item) => item.prompt === "الماء سائل.")).toBe(true);
+    const stats = await caller.questionBank.stats();
+    expect(stats.total).toBeGreaterThan(0);
+    expect(stats.bySubject["العلوم"]).toBeGreaterThan(0);
+    expect(stats.byDifficulty.easy).toBeGreaterThan(0);
+    expect(stats.byType.true_false).toBeGreaterThan(0);
     const imported = await caller.questionBank.importFromExam({ examId: created.id, questionIds: [restored!.questions[0]!.id] });
     expect(imported.importedCount).toBe(1);
     for (const item of (await caller.questionBank.list()).filter((candidate) => candidate.prompt === "الماء سائل." && candidate.subject === "العلوم" && candidate.grade === "السادس")) {

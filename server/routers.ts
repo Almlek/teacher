@@ -27,6 +27,7 @@ import {
   createExamVersion,
   getQuestionBankByUserId,
   searchQuestionBank,
+  getQuestionBankStats,
   createQuestionBankItem,
   deleteQuestionBankItem,
   deleteAllUserData,
@@ -476,8 +477,8 @@ export const appRouter = router({
 
     search: publicProcedure
       .input(z.object({
-        query: z.string().max(500).optional(),
-        subject: z.string().max(255).optional(),
+        query: z.string().max(255).optional(),
+        subject: z.string().max(100).optional(),
         grade: z.string().max(100).optional(),
         questionType: z.string().max(50).optional(),
         difficulty: z.string().max(30).optional(),
@@ -487,6 +488,11 @@ export const appRouter = router({
         if (!ctx.user) return [];
         return searchQuestionBank(ctx.user.id, input);
       }),
+
+    stats: publicProcedure.query(async ({ ctx }) => {
+      if (!ctx.user) return { total: 0, bySubject: {}, byDifficulty: { easy: 0, medium: 0, hard: 0 }, byType: { multiple_choice: 0, true_false: 0, short_answer: 0, essay: 0 } };
+      return getQuestionBankStats(ctx.user.id);
+    }),
 
     importFromExam: publicProcedure
       .input(z.object({

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
+import QuestionBankStats from "@/components/QuestionBankStats";
 import { BookMarked, CheckCircle2, Filter, Image as ImageIcon, Loader2, Plus, Search, Sparkles, Trash2, Upload } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -130,7 +131,7 @@ export default function QuestionBank() {
         marks: Number(form.marks) || 1,
       });
       setForm(initialForm);
-      await Promise.all([utils.questionBank.list.invalidate(), utils.questionBank.search.invalidate()]);
+      await Promise.all([utils.questionBank.list.invalidate(), utils.questionBank.search.invalidate(), utils.questionBank.stats.invalidate()]);
       toast.success("تمت إضافة السؤال إلى بنك الأسئلة");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذر إضافة السؤال");
@@ -203,7 +204,7 @@ export default function QuestionBank() {
         tags: question.tags || analysisTags || undefined,
         marks: question.marks,
       });
-      await Promise.all([utils.questionBank.list.invalidate(), utils.questionBank.search.invalidate()]);
+      await Promise.all([utils.questionBank.list.invalidate(), utils.questionBank.search.invalidate(), utils.questionBank.stats.invalidate()]);
       toast.success("تم حفظ السؤال الناتج في بنك الأسئلة");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذر حفظ السؤال الناتج");
@@ -217,7 +218,7 @@ export default function QuestionBank() {
     }
     try {
       const result = await importMutation.mutateAsync({ examId: Number(selectedExamId) });
-      await Promise.all([utils.questionBank.list.invalidate(), utils.questionBank.search.invalidate()]);
+      await Promise.all([utils.questionBank.list.invalidate(), utils.questionBank.search.invalidate(), utils.questionBank.stats.invalidate()]);
       toast.success(`تم استيراد ${result.importedCount} سؤالاً إلى البنك`);
       setSelectedExamId("");
     } catch (error) {
@@ -229,7 +230,7 @@ export default function QuestionBank() {
     if (!window.confirm("هل تريد حذف هذا السؤال من بنك الأسئلة؟")) return;
     try {
       await deleteMutation.mutateAsync({ id });
-      await utils.questionBank.list.invalidate();
+      await Promise.all([utils.questionBank.list.invalidate(), utils.questionBank.search.invalidate(), utils.questionBank.stats.invalidate()]);
       toast.success("تم حذف السؤال");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذر حذف السؤال");
@@ -251,6 +252,8 @@ export default function QuestionBank() {
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20"><BookMarked className="h-7 w-7" /></div>
             </div>
           </section>
+
+          <QuestionBankStats />
 
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-primary" />إضافة سؤال إلى البنك</CardTitle><CardDescription>يمكنك أيضاً حفظ أي سؤال مباشرة من محرر الاختبارات.</CardDescription></CardHeader>

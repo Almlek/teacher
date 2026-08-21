@@ -231,6 +231,27 @@ export async function searchQuestionBank(userId: number, filters: { query?: stri
   return await db.select().from(questionBank).where(and(...conditions)).orderBy(desc(questionBank.id));
 }
 
+export async function getQuestionBankStats(userId: number) {
+  const items = await getQuestionBankByUserId(userId);
+  const total = items.length;
+  const bySubject: Record<string, number> = {};
+  const byDifficulty: Record<string, number> = { easy: 0, medium: 0, hard: 0 };
+  const byType: Record<string, number> = { multiple_choice: 0, true_false: 0, short_answer: 0, essay: 0 };
+
+  items.forEach((item) => {
+    const sub = item.subject?.trim() || "بدون مادة";
+    bySubject[sub] = (bySubject[sub] || 0) + 1;
+
+    const diff = item.difficulty || "medium";
+    byDifficulty[diff] = (byDifficulty[diff] || 0) + 1;
+
+    const qType = item.questionType || "multiple_choice";
+    byType[qType] = (byType[qType] || 0) + 1;
+  });
+
+  return { total, bySubject, byDifficulty, byType };
+}
+
 export async function createQuestionBankItem(item: InsertQuestionBankItem) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

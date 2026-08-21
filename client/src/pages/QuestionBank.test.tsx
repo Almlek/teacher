@@ -4,6 +4,13 @@ import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+(globalThis as typeof globalThis & { ResizeObserver: typeof ResizeObserverMock }).ResizeObserver = ResizeObserverMock;
+
 const mocks = vi.hoisted(() => ({
   create: { mutateAsync: vi.fn(), isPending: false },
   analyzeImage: { mutateAsync: vi.fn(), isPending: false },
@@ -20,7 +27,7 @@ vi.mock("@/components/PublicNav", () => ({ default: () => <nav>التنقل</nav
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/trpc", () => ({
   trpc: {
-    useUtils: () => ({ questionBank: { list: { invalidate: vi.fn() }, search: { invalidate: vi.fn() } } }),
+    useUtils: () => ({ questionBank: { list: { invalidate: vi.fn() }, search: { invalidate: vi.fn() }, stats: { invalidate: vi.fn() } } }),
     exams: { list: { useQuery: () => ({ data: mocks.exams, isLoading: false }) } },
     questionBank: {
       list: { useQuery: () => ({ data: mocks.list, isLoading: false }) },
@@ -30,6 +37,7 @@ vi.mock("@/lib/trpc", () => ({
         if (input.tag && input.tag !== "all") res = res.filter((item) => item.tags?.includes(input.tag!));
         return { data: res, isLoading: false };
       } },
+      stats: { useQuery: () => ({ data: { total: 2, bySubject: { العلوم: 1, الرياضيات: 1 }, byDifficulty: { easy: 1, medium: 0, hard: 1 }, byType: { multiple_choice: 0, true_false: 1, short_answer: 0, essay: 1 } }, isLoading: false, isError: false }) },
       create: { useMutation: () => mocks.create },
       analyzeImage: { useMutation: () => mocks.analyzeImage },
       importFromExam: { useMutation: () => mocks.importFromExam },
@@ -68,6 +76,10 @@ describe("question bank UI", () => {
 
   it("adds a reusable question and filters the visible bank", async () => {
     render(<QuestionBank />);
+    expect(screen.getByRole("heading", { name: "إحصائيات بنك الأسئلة" })).toBeTruthy();
+    expect(screen.getByText("حسب المادة")).toBeTruthy();
+    expect(screen.getByText("مستوى الصعوبة")).toBeTruthy();
+    expect(screen.getByText("نوع التقييم")).toBeTruthy();
     expect(screen.getByText("الماء سائل.")).toBeTruthy();
     expect(screen.getByText("اشرح الكسور.")).toBeTruthy();
 
