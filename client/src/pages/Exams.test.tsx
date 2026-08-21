@@ -42,13 +42,18 @@ describe("smart exam generation UI", () => {
 
     fireEvent.click(screen.getByRole("combobox", { name: "الدرس المصدر" }));
     fireEvent.click(screen.getByText("درس الكسور — الرياضيات"));
+    fireEvent.click(screen.getByRole("combobox", { name: "الصعوبة" }));
+    fireEvent.click(screen.getByText("متقدم"));
+    fireEvent.click(screen.getByRole("combobox", { name: "نوع الأسئلة" }));
+    fireEvent.click(screen.getByText("مقالي"));
     fireEvent.click(screen.getByRole("button", { name: "توليد وحفظ الاختبار" }));
 
     expect(mocks.generate.mutate).toHaveBeenCalledWith({
       lessonId: 7,
       examType: "comprehensive",
       questionCount: 10,
-      difficulty: "medium",
+      difficulty: "hard",
+      preferredType: "essay",
       language: "ar",
       aiModel: "gemini-1.5-flash",
     });

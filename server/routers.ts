@@ -208,6 +208,7 @@ export const appRouter = router({
         examType: z.enum(["comprehensive", "formal", "electronic"]).default("comprehensive"),
         questionCount: z.number().int().min(3).max(30).default(10),
         difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
+        preferredType: z.enum(["mixed", "multiple_choice", "true_false", "essay"]).default("mixed"),
         language: z.enum(["ar", "en"]).default("ar"),
         aiModel: z.enum(["gemini-1.5-flash", "gemini-1.5-pro"]).default("gemini-1.5-flash"),
       }))
@@ -228,6 +229,7 @@ export const appRouter = router({
           examType: input.examType,
           questionCount: input.questionCount,
           difficulty: input.difficulty,
+          preferredType: input.preferredType,
           language: input.language,
           aiModel: input.aiModel,
         });

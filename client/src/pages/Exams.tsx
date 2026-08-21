@@ -19,6 +19,12 @@ const examTypeLabels: Record<string, string> = {
 };
 
 const difficultyLabels = { easy: "سهل", medium: "متوسط", hard: "متقدم" } as const;
+const questionTypeLabels = {
+  mixed: "متنوع",
+  multiple_choice: "اختيار من متعدد",
+  true_false: "صح أو خطأ",
+  essay: "مقالي",
+} as const;
 
 export default function Exams() {
   const [, setLocation] = useLocation();
@@ -27,6 +33,7 @@ export default function Exams() {
   const [examType, setExamType] = useState<"comprehensive" | "formal" | "electronic">("comprehensive");
   const [questionCount, setQuestionCount] = useState("10");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [preferredType, setPreferredType] = useState<"mixed" | "multiple_choice" | "true_false" | "essay">("mixed");
   const [aiModel, setAiModel] = useState<"gemini-1.5-flash" | "gemini-1.5-pro">("gemini-1.5-flash");
   const examsQuery = trpc.exams.list.useQuery();
   const lessonsQuery = trpc.lessons.list.useQuery();
@@ -52,7 +59,7 @@ export default function Exams() {
       toast.error("عدد الأسئلة يجب أن يكون بين 3 و30");
       return;
     }
-    generateMutation.mutate({ lessonId, examType, questionCount: count, difficulty, language: "ar", aiModel });
+    generateMutation.mutate({ lessonId, examType, questionCount: count, difficulty, preferredType, language: "ar", aiModel });
   };
 
   return (
@@ -137,6 +144,13 @@ export default function Exams() {
               <Select value={difficulty} onValueChange={(value) => setDifficulty(value as typeof difficulty)} disabled={generateMutation.isPending}>
                 <SelectTrigger id="generatedDifficulty"><SelectValue /></SelectTrigger>
                 <SelectContent>{Object.entries(difficultyLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="generatedQuestionType">نوع الأسئلة</Label>
+              <Select value={preferredType} onValueChange={(value) => setPreferredType(value as typeof preferredType)} disabled={generateMutation.isPending}>
+                <SelectTrigger id="generatedQuestionType"><SelectValue /></SelectTrigger>
+                <SelectContent>{Object.entries(questionTypeLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2">

@@ -90,14 +90,14 @@ describe("exams router", () => {
       }],
     });
 
-    const generated = await caller.exams.generateFromLesson({ lessonId: lesson!.id, questionCount: 5, difficulty: "medium", examType: "comprehensive", language: "ar", aiModel: "gemini-1.5-flash" });
+    const generated = await caller.exams.generateFromLesson({ lessonId: lesson!.id, questionCount: 5, difficulty: "hard", preferredType: "essay", examType: "comprehensive", language: "ar", aiModel: "gemini-1.5-flash" });
     expect(generated.examId).toBeGreaterThan(0);
     expect(generated.questionCount).toBe(1);
     const detail = await caller.exams.get({ id: generated.examId });
     expect(detail?.exam.sourceLessonId).toBe(lesson!.id);
     expect(detail?.questions[0]?.prompt).toBe("ما حالات الماء؟");
     expect(detail?.questions[0]?.options).toContain("جميع ما سبق");
-    expect(vi.mocked(generateExamFromLesson)).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("الماء") }));
+    expect(vi.mocked(generateExamFromLesson)).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("الماء"), difficulty: "hard", preferredType: "essay" }));
   });
 
   it("returns a backup payload with the required collections", async () => {
