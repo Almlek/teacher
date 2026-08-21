@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import type { ExamExportData } from "@/lib/examExport";
 import { moveItem, withSequentialOrder } from "@/lib/examEditorUtils";
-import { ArrowRight, ClipboardCheck, Loader2, Plus, Save } from "lucide-react";
+import { ArrowRight, ClipboardCheck, ImagePlus, Loader2, Plus, Save, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ type QuestionDraft = {
   options: string;
   correctAnswer: string;
   explanation: string;
+  imageUrl: string;
   marks: number;
 };
 
@@ -34,6 +35,7 @@ const emptyQuestion = (orderIndex: number): QuestionDraft => ({
   options: "",
   correctAnswer: "",
   explanation: "",
+  imageUrl: "",
   marks: 1,
 });
 
@@ -43,6 +45,7 @@ export default function ExamEditor() {
   const settingsQuery = trpc.settings.get.useQuery();
   const examQuery = trpc.exams.get.useQuery({ id: examId }, { enabled: examId > 0 });
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     subject: "",
@@ -80,6 +83,7 @@ export default function ExamEditor() {
       options: question.options || "",
       correctAnswer: question.correctAnswer || "",
       explanation: question.explanation || "",
+      imageUrl: question.imageUrl || "",
       marks: question.marks,
     })) : [emptyQuestion(0)]);
   }, [examQuery.data]);
@@ -87,6 +91,7 @@ export default function ExamEditor() {
   const createExamMutation = trpc.exams.create.useMutation();
   const updateExamMutation = trpc.exams.update.useMutation();
   const replaceQuestionsMutation = trpc.exams.questionsReplace.useMutation();
+  const uploadQuestionImageMutation = trpc.exams.questionImageUpload.useMutation();
   const totalMarks = questions.reduce((sum, question) => sum + (Number(question.marks) || 0), 0);
   const exportData: ExamExportData = {
     title: formData.title,
@@ -110,6 +115,41 @@ export default function ExamEditor() {
 
   const moveQuestion = (index: number, direction: -1 | 1) => {
     setQuestions((previous) => withSequentialOrder(moveItem(previous, index, index + direction)));
+  };
+
+  const handleQuestionImageChange = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const supportedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+    if (!supportedTypes.has(file.type)) {
+      toast.error("يرجى اختيار صورة بصيغة JPG أو PNG أو WEBP أو GIF");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("يجب ألا يتجاوز حجم الصورة 10 ميجابايت");
+      return;
+    }
+    setUploadingImageIndex(index);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const dataUrl = String(reader.result || "");
+        const fileData = dataUrl.split(",")[1] || "";
+        const uploaded = await uploadQuestionImageMutation.mutateAsync({ fileName: file.name, fileType: file.type, fileData });
+        updateQuestion(index, "imageUrl", uploaded.url);
+        toast.success("تم إرفاق الصورة بالسؤال");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "تعذر رفع الصورة");
+      } finally {
+        setUploadingImageIndex(null);
+      }
+    };
+    reader.onerror = () => {
+      setUploadingImageIndex(null);
+      toast.error("تعذر قراءة ملف الصورة");
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSave = async () => {
@@ -210,6 +250,17 @@ export default function ExamEditor() {
                   </div>
                   <div className="mt-4 grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>الخيارات</Label><Input value={question.options} onChange={(event) => updateQuestion(index, "options", event.target.value)} placeholder="أ) ... | ب) ... | ج) ..." /></div><div className="space-y-2"><Label>الإجابة الصحيحة</Label><Input value={question.correctAnswer} onChange={(event) => updateQuestion(index, "correctAnswer", event.target.value)} placeholder="الإجابة النموذجية" /></div></div>
                   <div className="mt-4 space-y-2"><Label>شرح الإجابة (اختياري)</Label><Textarea value={question.explanation} onChange={(event) => updateQuestion(index, "explanation", event.target.value)} rows={2} placeholder="أضف توضيحاً يساعد على المراجعة..." /></div>
+                  <div className="mt-4 rounded-xl border border-dashed border-primary/30 bg-primary/[0.03] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div><Label className="flex items-center gap-2"><ImagePlus className="h-4 w-4 text-primary" /> صورة أو رسم توضيحي (اختياري)</Label><p className="mt-1 text-xs text-muted-foreground">JPG أو PNG أو WEBP أو GIF، بحد أقصى 10 ميجابايت.</p></div>
+                      <label htmlFor={`question-image-${index}`} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-primary/25 bg-background px-3 py-2 text-sm font-bold text-primary transition hover:bg-primary/5">
+                        {uploadingImageIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                        {uploadingImageIndex === index ? "جاري الرفع..." : question.imageUrl ? "استبدال الصورة" : "إدراج صورة"}
+                      </label>
+                      <input id={`question-image-${index}`} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={(event) => handleQuestionImageChange(index, event)} disabled={uploadingImageIndex !== null} />
+                    </div>
+                    {question.imageUrl && <div className="relative mt-4 overflow-hidden rounded-xl border bg-background p-2"><img src={question.imageUrl} alt={`رسم توضيحي للسؤال ${index + 1}`} className="max-h-64 w-full rounded-lg object-contain" /><button type="button" aria-label={`حذف صورة السؤال ${index + 1}`} onClick={() => updateQuestion(index, "imageUrl", "")} className="absolute left-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-destructive shadow-sm transition hover:bg-destructive hover:text-destructive-foreground"><X className="h-4 w-4" /></button></div>}
+                  </div>
                 </div>
               ))}
               <Button type="button" variant="outline" onClick={() => setQuestions((previous) => [...previous, emptyQuestion(previous.length)])} className="w-full gap-2 rounded-xl"><Plus className="h-4 w-4" /> إضافة سؤال</Button>

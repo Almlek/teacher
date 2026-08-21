@@ -31,6 +31,8 @@ import { storagePut } from "./storage";
 import { decodeAndValidateLibraryFile } from "./libraryUpload";
 import { extractLibraryText } from "./libraryExtract";
 
+const examImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -323,6 +325,7 @@ export const appRouter = router({
           options: z.string().optional(),
           correctAnswer: z.string().optional(),
           explanation: z.string().optional(),
+          imageUrl: z.string().max(2000).refine((value) => value.startsWith("/manus-storage/") || /^https?:\/\//.test(value), "رابط الصورة غير صالح").optional(),
           marks: z.number().int().positive(),
         })),
       }))
@@ -335,6 +338,23 @@ export const appRouter = router({
           await createExamQuestion({ examId: input.examId, ...question });
         }
         return { success: true } as const;
+      }),
+
+    questionImageUpload: publicProcedure
+      .input(z.object({
+        fileName: z.string().min(1).max(500),
+        fileType: z.string().min(1),
+        fileData: z.string().min(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        if (!examImageTypes.has(input.fileType)) {
+          throw new Error("ارفع صورة بصيغة JPG أو PNG أو WEBP أو GIF.");
+        }
+        const data = decodeAndValidateLibraryFile(input.fileData, input.fileType);
+        const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-160) || "question-image";
+        const uploaded = await storagePut(`${ctx.user.id}-exam-images/${Date.now()}-${safeName}`, data, input.fileType);
+        return { url: uploaded.url, key: uploaded.key, fileName: input.fileName, fileType: input.fileType };
       }),
 
     questionDelete: publicProcedure

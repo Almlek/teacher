@@ -319,6 +319,30 @@
     white-space: pre-line;
   }
 
+  .exam-print-illustration {
+    margin: 12px auto;
+    text-align: center;
+    break-inside: avoid;
+  }
+
+  .exam-print-illustration img {
+    display: block;
+    max-width: 150mm;
+    max-height: 75mm;
+    width: auto;
+    height: auto;
+    margin: 0 auto;
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+
+  .exam-print-illustration figcaption {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 11px;
+  }
+
   .exam-print-question ol {
     margin: 4px 0 0;
     padding-right: 22px;

@@ -37,6 +37,7 @@ vi.mock("@/lib/trpc", () => ({
       create: { useMutation: mocks.mutation },
       update: { useMutation: mocks.mutation },
       questionsReplace: { useMutation: mocks.mutation },
+      questionImageUpload: { useMutation: mocks.mutation },
     },
   },
 }));

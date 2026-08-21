@@ -5,6 +5,7 @@ export type ExamExportQuestion = {
   options?: string | null;
   correctAnswer?: string | null;
   explanation?: string | null;
+  imageUrl?: string | null;
   marks: number;
 };
 
@@ -78,9 +79,13 @@ export function buildExamWordDocument(exam: ExamExportData) {
     const options = parseExamOptions(question.options)
       .map((option, optionIndex) => `<li>${escapeHtml(optionLetters[optionIndex] || `${optionIndex + 1}`)}) ${escapeHtml(option)}</li>`)
       .join("");
+    const imageMarkup = question.imageUrl
+      ? `<figure class="question-illustration"><img src="${escapeHtml(question.imageUrl)}" alt="رسم توضيحي للسؤال ${index + 1}" /><figcaption>رسم توضيحي للسؤال ${index + 1}</figcaption></figure>`
+      : "";
     return `<section class="question">
       <h3>السؤال ${index + 1} — ${escapeHtml(questionTypeLabels[question.questionType] || question.questionType)} <span>(${question.marks} درجة)</span></h3>
       <p class="prompt">${linesToHtml(question.prompt)}</p>
+      ${imageMarkup}
       ${options ? `<ol class="options" type="a">${options}</ol>` : ""}
     </section>`;
   }).join("\n");
@@ -103,6 +108,9 @@ export function buildExamWordDocument(exam: ExamExportData) {
   h3 { font-size: 16px; margin: 0 0 7px; color: #1e3a8a; }
   h3 span { color: #64748b; font-size: 12px; }
   .prompt { margin: 0 0 5px; font-weight: 600; }
+  .question-illustration { margin: 12px auto; text-align: center; page-break-inside: avoid; }
+  .question-illustration img { display: block; max-width: 150mm; max-height: 75mm; width: auto; height: auto; margin: 0 auto; border: 1px solid #dbeafe; border-radius: 8px; object-fit: contain; }
+  .question-illustration figcaption { margin-top: 4px; color: #64748b; font-size: 11px; }
   .options { margin: 4px 0 0; padding-right: 22px; }
   .options li { padding: 2px 0; }
   .footer { margin-top: 25px; border-top: 1px solid #cbd5e1; padding-top: 10px; font-size: 12px; color: #64748b; text-align: center; }

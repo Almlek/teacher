@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { generateExamFromLesson } from "./examGenerator";
 
 vi.mock("./examGenerator", () => ({ generateExamFromLesson: vi.fn() }));
+vi.mock("./storage", () => ({ storagePut: vi.fn() }));
+import { storagePut } from "./storage";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
@@ -49,6 +51,7 @@ describe("exams router", () => {
         options: "أ) 3 | ب) 4",
         correctAnswer: "ب",
         explanation: "لأن 2 + 2 = 4",
+        imageUrl: "/manus-storage/exam-images/fraction.png",
         marks: 2,
       }],
     });
@@ -57,9 +60,24 @@ describe("exams router", () => {
     expect(result?.exam.summaryContent).toBe("اختبار قصير");
     expect(result?.questions).toHaveLength(1);
     expect(result?.questions[0]?.correctAnswer).toBe("ب");
+    expect(result?.questions[0]?.imageUrl).toBe("/manus-storage/exam-images/fraction.png");
 
     const backup = await caller.backup.export();
     expect(backup.examQuestions.some((question) => question.examId === created.id)).toBe(true);
+  });
+
+  it("uploads a validated question image and returns its storage URL", async () => {
+    vi.mocked(storagePut).mockResolvedValueOnce({ key: "1-exam-images/diagram.png", url: "/manus-storage/1-exam-images/diagram.png" });
+    const caller = appRouter.createCaller(createAuthContext());
+    const pngData = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+    const uploaded = await caller.exams.questionImageUpload({ fileName: "diagram.png", fileType: "image/png", fileData: pngData });
+    expect(uploaded.url).toBe("/manus-storage/1-exam-images/diagram.png");
+    expect(vi.mocked(storagePut)).toHaveBeenCalledWith(expect.stringContaining("1-exam-images/"), expect.any(Buffer), "image/png");
+  });
+
+  it("rejects non-image question uploads", async () => {
+    const caller = appRouter.createCaller(createAuthContext());
+    await expect(caller.exams.questionImageUpload({ fileName: "lesson.pdf", fileType: "application/pdf", fileData: "JVBERi0=" })).rejects.toThrow("ارفع صورة");
   });
 
   it("generates and saves an exam from a selected lesson", async () => {

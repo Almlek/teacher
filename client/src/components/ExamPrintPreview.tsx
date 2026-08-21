@@ -35,6 +35,7 @@ export default function ExamPrintPreview({ exam }: { exam: ExamExportData }) {
           <article key={`${question.orderIndex}-${index}`} className="exam-print-question">
             <h2>السؤال {index + 1} — {questionTypeLabels[question.questionType] || question.questionType} <small>({question.marks} درجة)</small></h2>
             <p>{question.prompt}</p>
+            {question.imageUrl && <figure className="exam-print-illustration"><img src={question.imageUrl} alt={`رسم توضيحي للسؤال ${index + 1}`} /><figcaption>رسم توضيحي للسؤال {index + 1}</figcaption></figure>}
             {parseExamOptions(question.options).length > 0 && (
               <ol type="a">
                 {parseExamOptions(question.options).map((option, optionIndex) => <li key={`${index}-${optionIndex}`}>{option}</li>)}

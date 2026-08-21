@@ -23,6 +23,7 @@ const exam = {
     options: JSON.stringify(["صلبة", "سائلة", "غازية", "جميع ما سبق"]),
     correctAnswer: "جميع ما سبق",
     explanation: "للماء حالات متعددة.",
+    imageUrl: "/manus-storage/1-exam-images/diagram.png",
     marks: 2,
   }],
 };
@@ -46,6 +47,8 @@ describe("exam export utilities", () => {
     expect(html).toContain("اختبار العلوم / الوحدة الأولى");
     expect(html).toContain("ما حالات الماء؟");
     expect(html).toContain("جميع ما سبق");
+    expect(html).toContain('/manus-storage/1-exam-images/diagram.png');
+    expect(html).toContain("رسم توضيحي للسؤال 1");
     expect(html).toContain("اسم الطالب");
   });
 
