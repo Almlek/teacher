@@ -1,6 +1,7 @@
 import PublicNav from "@/components/PublicNav";
 import ExamExportActions from "@/components/ExamExportActions";
 import ExamPrintPreview from "@/components/ExamPrintPreview";
+import QuestionOrderControls from "@/components/QuestionOrderControls";
 import LoadingState from "@/components/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import type { ExamExportData } from "@/lib/examExport";
-import { ArrowRight, ClipboardCheck, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { moveItem, withSequentialOrder } from "@/lib/examEditorUtils";
+import { ArrowRight, ClipboardCheck, Loader2, Plus, Save } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
@@ -106,6 +108,10 @@ export default function ExamEditor() {
     setQuestions((previous) => previous.map((question, questionIndex) => questionIndex === index ? { ...question, [key]: value } : question));
   };
 
+  const moveQuestion = (index: number, direction: -1 | 1) => {
+    setQuestions((previous) => withSequentialOrder(moveItem(previous, index, index + direction)));
+  };
+
   const handleSave = async () => {
     if (!formData.title.trim()) {
       toast.error("يرجى إدخال عنوان الاختبار");
@@ -184,11 +190,19 @@ export default function ExamEditor() {
           </Card>
 
           <Card>
-            <CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>محرر الأسئلة</CardTitle><CardDescription>{questions.length} أسئلة · {totalMarks} درجات</CardDescription></div><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><ClipboardCheck className="h-5 w-5" /></div></div></CardHeader>
+            <CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>محرر الأسئلة</CardTitle><CardDescription>{questions.length} أسئلة · {totalMarks} درجات · يمكنك تعديل أي سؤال ونقله قبل الحفظ أو التصدير</CardDescription></div><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><ClipboardCheck className="h-5 w-5" /></div></div></CardHeader>
             <CardContent className="space-y-5">
               {questions.map((question, index) => (
                 <div key={`${question.orderIndex}-${index}`} className="rounded-2xl border border-border/70 bg-muted/15 p-4 sm:p-5">
-                  <div className="mb-4 flex items-center justify-between gap-3"><span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">السؤال {index + 1}</span>{questions.length > 1 && <Button type="button" variant="ghost" size="icon" onClick={() => setQuestions((previous) => previous.filter((_, questionIndex) => questionIndex !== index))} aria-label={`حذف السؤال ${index + 1}`}><Trash2 className="h-4 w-4 text-destructive" /></Button>}</div>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">السؤال {index + 1}</span>
+                    <QuestionOrderControls
+                      index={index}
+                      total={questions.length}
+                      onMove={(direction) => moveQuestion(index, direction)}
+                      onDelete={() => setQuestions((previous) => withSequentialOrder(previous.filter((_, questionIndex) => questionIndex !== index)))}
+                    />
+                  </div>
                   <div className="grid gap-4 sm:grid-cols-[1fr_180px_100px]">
                     <div className="space-y-2 sm:col-span-1"><Label>نص السؤال</Label><Textarea value={question.prompt} onChange={(event) => updateQuestion(index, "prompt", event.target.value)} rows={3} placeholder="اكتب السؤال هنا..." /></div>
                     <div className="space-y-2"><Label>نوع السؤال</Label><Select value={question.questionType} onValueChange={(value) => updateQuestion(index, "questionType", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="multiple_choice">اختيار من متعدد</SelectItem><SelectItem value="true_false">صح أو خطأ</SelectItem><SelectItem value="short_answer">إجابة قصيرة</SelectItem><SelectItem value="essay">مقالي</SelectItem></SelectContent></Select></div>
