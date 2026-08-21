@@ -218,7 +218,7 @@ export async function getQuestionBankByUserId(userId: number) {
   return await db.select().from(questionBank).where(eq(questionBank.userId, userId)).orderBy(desc(questionBank.id));
 }
 
-export async function searchQuestionBank(userId: number, filters: { query?: string; subject?: string; grade?: string; questionType?: string; difficulty?: string }) {
+export async function searchQuestionBank(userId: number, filters: { query?: string; subject?: string; grade?: string; questionType?: string; difficulty?: string; tag?: string }) {
   const db = await getDb();
   if (!db) return [];
   const conditions = [eq(questionBank.userId, userId)];
@@ -227,6 +227,7 @@ export async function searchQuestionBank(userId: number, filters: { query?: stri
   if (filters.grade) conditions.push(eq(questionBank.grade, filters.grade));
   if (filters.questionType) conditions.push(eq(questionBank.questionType, filters.questionType));
   if (filters.difficulty) conditions.push(eq(questionBank.difficulty, filters.difficulty));
+  if (filters.tag?.trim()) conditions.push(like(questionBank.tags, `%${filters.tag.trim()}%`));
   return await db.select().from(questionBank).where(and(...conditions)).orderBy(desc(questionBank.id));
 }
 

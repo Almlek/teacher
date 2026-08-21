@@ -32,6 +32,7 @@ const initialForm = {
   options: "",
   correctAnswer: "",
   explanation: "",
+  tags: "",
   marks: "1",
 };
 
@@ -48,17 +49,32 @@ export default function QuestionBank() {
   const [filterGrade, setFilterGrade] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterDifficulty, setFilterDifficulty] = useState("all");
+  const [filterTag, setFilterTag] = useState("all");
   const [selectedExamId, setSelectedExamId] = useState("");
 
   const subjects = useMemo(() => Array.from(new Set((bankQuery.data || []).map((item) => item.subject).filter(Boolean) as string[])), [bankQuery.data]);
   const grades = useMemo(() => Array.from(new Set((bankQuery.data || []).map((item) => item.grade).filter(Boolean) as string[])), [bankQuery.data]);
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    (bankQuery.data || []).forEach((item) => {
+      if (item.tags) {
+        item.tags.split(",").forEach((t) => {
+          const clean = t.trim();
+          if (clean) tagSet.add(clean);
+        });
+      }
+    });
+    return Array.from(tagSet);
+  }, [bankQuery.data]);
+
   const searchInput = useMemo(() => ({
     query: search || undefined,
     subject: filterSubject === "all" ? undefined : filterSubject,
     grade: filterGrade === "all" ? undefined : filterGrade,
     questionType: filterType === "all" ? undefined : filterType,
     difficulty: filterDifficulty === "all" ? undefined : filterDifficulty,
-  }), [filterDifficulty, filterGrade, filterSubject, filterType, search]);
+    tag: filterTag === "all" ? undefined : filterTag,
+  }), [filterDifficulty, filterGrade, filterSubject, filterTag, filterType, search]);
   const searchQuery = trpc.questionBank.search.useQuery(searchInput);
   const filteredItems = searchQuery.data || [];
 
@@ -143,7 +159,8 @@ export default function QuestionBank() {
               <div className="space-y-2"><Label htmlFor="bank-answer">الإجابة الصحيحة</Label><Input id="bank-answer" value={form.correctAnswer} onChange={(event) => updateForm("correctAnswer", event.target.value)} placeholder="الإجابة النموذجية" /></div>
               <div className="space-y-2 sm:col-span-2"><Label htmlFor="bank-explanation">شرح الإجابة</Label><Textarea id="bank-explanation" value={form.explanation} onChange={(event) => updateForm("explanation", event.target.value)} rows={2} placeholder="توضيح اختياري..." /></div>
               <div className="space-y-2"><Label htmlFor="bank-marks">الدرجة</Label><Input id="bank-marks" type="number" min="1" value={form.marks} onChange={(event) => updateForm("marks", event.target.value)} /></div>
-              <div className="flex items-end"><Button onClick={handleCreate} disabled={createMutation.isPending} className="w-full gap-2 rounded-xl">{createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}حفظ في بنك الأسئلة</Button></div>
+              <div className="space-y-2 sm:col-span-2"><Label htmlFor="bank-tags">الإشارات (Tags)</Label><Input id="bank-tags" value={form.tags} onChange={(event) => updateForm("tags", event.target.value)} placeholder="مثال: فصل أول, مهم, مراجعة" /></div>
+              <div className="flex items-end sm:col-span-2"><Button onClick={handleCreate} disabled={createMutation.isPending} className="w-full gap-2 rounded-xl">{createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}حفظ في بنك الأسئلة</Button></div>
             </CardContent>
           </Card>
 
@@ -157,16 +174,17 @@ export default function QuestionBank() {
 
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary" />البحث والتصفية</CardTitle><CardDescription>{filteredItems.length} سؤالاً متاحاً للإدراج في الاختبارات.</CardDescription></CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
               <div className="relative sm:col-span-2 lg:col-span-1"><Search className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="pr-9" placeholder="ابحث في نص السؤال..." /></div>
               <Select value={filterSubject} onValueChange={setFilterSubject}><SelectTrigger aria-label="تصفية المادة"><SelectValue placeholder="كل المواد" /></SelectTrigger><SelectContent><SelectItem value="all">كل المواد</SelectItem>{subjects.map((subject) => <SelectItem key={subject} value={subject}>{subject}</SelectItem>)}</SelectContent></Select>
               <Select value={filterGrade} onValueChange={setFilterGrade}><SelectTrigger aria-label="تصفية الصف"><SelectValue placeholder="كل الصفوف" /></SelectTrigger><SelectContent><SelectItem value="all">كل الصفوف</SelectItem>{grades.map((grade) => <SelectItem key={grade} value={grade}>{grade}</SelectItem>)}</SelectContent></Select>
               <Select value={filterType} onValueChange={setFilterType}><SelectTrigger aria-label="تصفية النوع"><SelectValue placeholder="كل الأنواع" /></SelectTrigger><SelectContent><SelectItem value="all">كل الأنواع</SelectItem>{Object.entries(questionTypeLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
               <Select value={filterDifficulty} onValueChange={setFilterDifficulty}><SelectTrigger aria-label="تصفية الصعوبة"><SelectValue placeholder="كل الصعوبات" /></SelectTrigger><SelectContent><SelectItem value="all">كل الصعوبات</SelectItem>{Object.entries(difficultyLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
+              <Select value={filterTag} onValueChange={setFilterTag}><SelectTrigger aria-label="تصفية الإشارة"><SelectValue placeholder="كل الإشارات" /></SelectTrigger><SelectContent><SelectItem value="all">كل الإشارات</SelectItem>{allTags.map((tag) => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)}</SelectContent></Select>
             </CardContent>
           </Card>
 
-          {bankQuery.isLoading || searchQuery.isLoading ? <Card><CardContent className="flex items-center justify-center gap-2 py-16 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />جاري تحميل بنك الأسئلة...</CardContent></Card> : filteredItems.length === 0 ? <Card><CardContent className="py-16 text-center text-muted-foreground">لا توجد أسئلة مطابقة للبحث الحالي.</CardContent></Card> : <div className="grid gap-4 lg:grid-cols-2">{filteredItems.map((item) => <Card key={item.id} className="overflow-hidden"><CardContent className="space-y-4 p-5"><div className="flex items-start justify-between gap-3"><div className="flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary">{questionTypeLabels[item.questionType] || item.questionType}</span><span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-700">{difficultyLabels[item.difficulty] || item.difficulty}</span></div><Button variant="ghost" size="icon" aria-label={`حذف ${item.prompt}`} onClick={() => handleDelete(item.id)} disabled={deleteMutation.isPending} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button></div><p className="text-base font-bold leading-8">{item.prompt}</p>{item.imageUrl && <img src={item.imageUrl} alt="رسم توضيحي للسؤال" className="max-h-48 w-full rounded-xl border object-contain" />}<div className="flex flex-wrap gap-3 text-xs text-muted-foreground"><span>{item.subject || "بدون مادة"}</span><span>{item.grade || "بدون صف"}</span><span>{item.marks} درجة</span></div></CardContent></Card>)}</div>}
+          {bankQuery.isLoading || searchQuery.isLoading ? <Card><CardContent className="flex items-center justify-center gap-2 py-16 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />جاري تحميل بنك الأسئلة...</CardContent></Card> : filteredItems.length === 0 ? <Card><CardContent className="py-16 text-center text-muted-foreground">لا توجد أسئلة مطابقة للبحث الحالي.</CardContent></Card> : <div className="grid gap-4 lg:grid-cols-2">{filteredItems.map((item) => <Card key={item.id} className="overflow-hidden"><CardContent className="space-y-4 p-5"><div className="flex items-start justify-between gap-3"><div className="flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary">{questionTypeLabels[item.questionType] || item.questionType}</span><span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-700">{difficultyLabels[item.difficulty] || item.difficulty}</span></div><Button variant="ghost" size="icon" aria-label={`حذف ${item.prompt}`} onClick={() => handleDelete(item.id)} disabled={deleteMutation.isPending} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button></div><p className="text-base font-bold leading-8">{item.prompt}</p>{item.imageUrl && <img src={item.imageUrl} alt="رسم توضيحي للسؤال" className="max-h-48 w-full rounded-xl border object-contain" />}<div className="flex flex-wrap gap-2 text-xs text-muted-foreground"><span>{item.subject || "بدون مادة"}</span><span>•</span><span>{item.grade || "بدون صف"}</span><span>•</span><span>{item.marks} درجة</span></div>{item.tags && <div className="flex flex-wrap gap-1.5 pt-1">{item.tags.split(",").map((t, i) => <span key={i} className="rounded bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">#{t.trim()}</span>)}</div>}</CardContent></Card>)}</div>}
         </div>
       </main>
     </div>

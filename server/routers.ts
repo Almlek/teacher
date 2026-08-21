@@ -457,6 +457,7 @@ export const appRouter = router({
         grade: z.string().max(100).optional(),
         questionType: z.string().max(50).optional(),
         difficulty: z.string().max(30).optional(),
+        tag: z.string().max(100).optional(),
       }))
       .query(async ({ ctx, input }) => {
         if (!ctx.user) return [];
@@ -503,6 +504,7 @@ export const appRouter = router({
         correctAnswer: z.string().optional(),
         explanation: z.string().optional(),
         imageUrl: z.string().max(2000).optional(),
+        tags: z.string().max(500).optional(),
         marks: z.number().int().positive().default(1),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -541,7 +543,7 @@ export const appRouter = router({
         exams: z.array(z.object({ title: z.string() }).passthrough()).default([]),
         examQuestions: z.array(z.object({ examId: z.number(), prompt: z.string() }).passthrough()).default([]),
         examVersions: z.array(z.object({ examId: z.number(), title: z.string(), snapshotJson: z.string() }).passthrough()).default([]),
-        questionBank: z.array(z.object({ prompt: z.string() }).passthrough()).default([]),
+        questionBank: z.array(z.object({ prompt: z.string(), tags: z.string().optional().nullable() }).passthrough()).default([]),
         settings: z.record(z.string(), z.any()).optional(),
       }))
       .mutation(async ({ ctx, input }) => {

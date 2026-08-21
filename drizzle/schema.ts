@@ -135,6 +135,7 @@ export const questionBank = mysqlTable("question_bank", {
   correctAnswer: text("correctAnswer"),
   explanation: text("explanation"),
   imageUrl: text("imageUrl"),
+  tags: text("tags"),
   marks: int("marks").default(1).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

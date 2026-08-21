@@ -64,6 +64,13 @@
       "when": 1787323196692,
       "tag": "0008_motionless_sasquatch",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1787325807423,
+      "tag": "0009_foamy_hellcat",
+      "breakpoints": true
     }
   ]
 }

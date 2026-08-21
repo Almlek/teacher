@@ -10,8 +10,8 @@ const mocks = vi.hoisted(() => ({
   delete: { mutateAsync: vi.fn(), isPending: false },
   exams: [{ id: 77, title: "اختبار العلوم" }],
   list: [
-    { id: 1, subject: "العلوم", grade: "السادس", questionType: "true_false", difficulty: "easy", prompt: "الماء سائل.", options: null, correctAnswer: "صح", explanation: null, imageUrl: null, marks: 1 },
-    { id: 2, subject: "الرياضيات", grade: "السادس", questionType: "essay", difficulty: "hard", prompt: "اشرح الكسور.", options: null, correctAnswer: null, explanation: null, imageUrl: null, marks: 2 },
+    { id: 1, subject: "العلوم", grade: "السادس", questionType: "true_false", difficulty: "easy", prompt: "الماء سائل.", options: null, correctAnswer: "صح", explanation: null, imageUrl: null, tags: "مراجعة", marks: 1 },
+    { id: 2, subject: "الرياضيات", grade: "السادس", questionType: "essay", difficulty: "hard", prompt: "اشرح الكسور.", options: null, correctAnswer: null, explanation: null, imageUrl: null, tags: "فصل أول", marks: 2 },
   ],
 }));
 
@@ -23,7 +23,12 @@ vi.mock("@/lib/trpc", () => ({
     exams: { list: { useQuery: () => ({ data: mocks.exams, isLoading: false }) } },
     questionBank: {
       list: { useQuery: () => ({ data: mocks.list, isLoading: false }) },
-      search: { useQuery: (input: { query?: string }) => ({ data: input.query ? mocks.list.filter((item) => item.prompt.includes(input.query!)) : mocks.list, isLoading: false }) },
+      search: { useQuery: (input: { query?: string; tag?: string }) => {
+        let res = mocks.list;
+        if (input.query) res = res.filter((item) => item.prompt.includes(input.query!));
+        if (input.tag && input.tag !== "all") res = res.filter((item) => item.tags?.includes(input.tag!));
+        return { data: res, isLoading: false };
+      } },
       create: { useMutation: () => mocks.create },
       importFromExam: { useMutation: () => mocks.importFromExam },
       delete: { useMutation: () => mocks.delete },

@@ -135,10 +135,10 @@ describe("exams router", () => {
     const restored = await caller.exams.get({ id: created.id });
     expect(restored?.questions[0]?.prompt).toBe("الماء سائل.");
 
-    const bankItem = await caller.questionBank.create({ subject: "العلوم", grade: "السادس", questionType: "true_false", difficulty: "easy", prompt: "الماء سائل.", correctAnswer: "صح", marks: 1 });
+    const bankItem = await caller.questionBank.create({ subject: "العلوم", grade: "السادس", questionType: "true_false", difficulty: "easy", prompt: "الماء سائل.", correctAnswer: "صح", tags: "فصل أول, مهم", marks: 1 });
     const bank = await caller.questionBank.list();
-    expect(bank.some((item) => item.prompt === "الماء سائل.")).toBe(true);
-    const searched = await caller.questionBank.search({ query: "الماء", subject: "العلوم", difficulty: "easy" });
+    expect(bank.some((item) => item.prompt === "الماء سائل." && item.tags === "فصل أول, مهم")).toBe(true);
+    const searched = await caller.questionBank.search({ query: "الماء", tag: "مهم" });
     expect(searched.some((item) => item.prompt === "الماء سائل.")).toBe(true);
     const imported = await caller.questionBank.importFromExam({ examId: created.id, questionIds: [restored!.questions[0]!.id] });
     expect(imported.importedCount).toBe(1);
