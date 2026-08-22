@@ -6,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import QuestionBankStats from "@/components/QuestionBankStats";
-import { BookMarked, CheckCircle2, Filter, Image as ImageIcon, Loader2, Plus, Search, Sparkles, Trash2, Upload } from "lucide-react";
+import QuestionBankStats, { type QuestionBankChartFilter } from "@/components/QuestionBankStats";
+import { BarChart3, BookMarked, CheckCircle2, Filter, Image as ImageIcon, Loader2, Plus, Search, Sparkles, Trash2, Upload, X } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -71,6 +71,7 @@ export default function QuestionBank() {
   const [filterType, setFilterType] = useState("all");
   const [filterDifficulty, setFilterDifficulty] = useState("all");
   const [filterTag, setFilterTag] = useState("all");
+  const [activeChartFilter, setActiveChartFilter] = useState<QuestionBankChartFilter | null>(null);
   const [selectedExamId, setSelectedExamId] = useState("");
   const [analysisImageData, setAnalysisImageData] = useState("");
   const [analysisMimeType, setAnalysisMimeType] = useState<"image/jpeg" | "image/png" | "image/webp" | "image/gif">("image/png");
@@ -111,6 +112,22 @@ export default function QuestionBank() {
   const filteredItems = searchQuery.data || [];
 
   const updateForm = (key: keyof typeof form, value: string) => setForm((previous) => ({ ...previous, [key]: value }));
+
+  const handleChartFilter = (filter: QuestionBankChartFilter) => {
+    const isSame = activeChartFilter?.dimension === filter.dimension && activeChartFilter.value === filter.value;
+    if (filter.dimension === "subject") setFilterSubject(isSame ? "all" : filter.value);
+    if (filter.dimension === "difficulty") setFilterDifficulty(isSame ? "all" : filter.value);
+    if (filter.dimension === "questionType") setFilterType(isSame ? "all" : filter.value);
+    setActiveChartFilter(isSame ? null : filter);
+  };
+
+  const clearChartFilter = () => {
+    if (!activeChartFilter) return;
+    if (activeChartFilter.dimension === "subject") setFilterSubject("all");
+    if (activeChartFilter.dimension === "difficulty") setFilterDifficulty("all");
+    if (activeChartFilter.dimension === "questionType") setFilterType("all");
+    setActiveChartFilter(null);
+  };
 
   const handleCreate = async () => {
     if (!form.prompt.trim()) {
@@ -253,7 +270,9 @@ export default function QuestionBank() {
             </div>
           </section>
 
-          <QuestionBankStats />
+          <QuestionBankStats onFilter={handleChartFilter} />
+
+          {activeChartFilter && <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/[0.06] px-4 py-3 text-sm"><div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /><span>تصفية من الرسم:</span><span className="rounded-full bg-primary px-3 py-1 font-bold text-primary-foreground">{activeChartFilter.label}</span></div><Button variant="ghost" size="sm" onClick={clearChartFilter} className="gap-1.5 text-primary hover:bg-primary/10"><X className="h-4 w-4" />إزالة التصفية</Button></div>}
 
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-primary" />إضافة سؤال إلى البنك</CardTitle><CardDescription>يمكنك أيضاً حفظ أي سؤال مباشرة من محرر الاختبارات.</CardDescription></CardHeader>

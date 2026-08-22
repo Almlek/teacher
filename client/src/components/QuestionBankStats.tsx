@@ -14,6 +14,12 @@ type Stats = {
   byType: Distribution;
 };
 
+export type QuestionBankChartFilter = {
+  dimension: "subject" | "difficulty" | "questionType";
+  value: string;
+  label: string;
+};
+
 const difficultyLabels: Record<string, string> = {
   easy: "سهل",
   medium: "متوسط",
@@ -43,7 +49,7 @@ function EmptyChart({ message }: { message: string }) {
   return <div className="flex h-56 items-center justify-center rounded-xl border border-dashed bg-muted/20 px-5 text-center text-sm text-muted-foreground">{message}</div>;
 }
 
-export default function QuestionBankStats() {
+export default function QuestionBankStats({ onFilter }: { onFilter?: (filter: QuestionBankChartFilter) => void }) {
   const statsQuery = trpc.questionBank.stats.useQuery();
   const stats = statsQuery.data as Stats | undefined;
 
@@ -81,12 +87,12 @@ export default function QuestionBankStats() {
     </div>
 
     <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-      <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><BookOpenCheck className="h-5 w-5 text-primary" />حسب المادة</CardTitle><CardDescription>عدد الأسئلة المحفوظة لكل مادة.</CardDescription></CardHeader><CardContent>{subjects.length ? <ChartContainer config={subjectConfig} className="h-64 w-full aspect-auto"><BarChart accessibilityLayer data={subjects} layout="vertical" margin={{ left: 8, right: 16, top: 6, bottom: 6 }}><CartesianGrid horizontal={false} /><YAxis dataKey="label" type="category" tickLine={false} axisLine={false} width={92} tick={{ fontSize: 12 }} /><XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} /><ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} /><Bar dataKey="count" radius={[0, 8, 8, 0]}>{subjects.map((item, index) => <Cell key={item.key} fill={subjectColors[index % subjectColors.length]} />)}</Bar></BarChart></ChartContainer> : <EmptyChart message="أضف أسئلة إلى البنك لتظهر مقارنة المواد هنا." />}</CardContent></Card>
+      <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><BookOpenCheck className="h-5 w-5 text-primary" />حسب المادة</CardTitle><CardDescription>عدد الأسئلة المحفوظة لكل مادة. انقر على أي شريط لتصفية القائمة.</CardDescription></CardHeader><CardContent>{subjects.length ? <ChartContainer config={subjectConfig} className="h-64 w-full aspect-auto"><BarChart accessibilityLayer data={subjects} layout="vertical" margin={{ left: 8, right: 16, top: 6, bottom: 6 }}><CartesianGrid horizontal={false} /><YAxis dataKey="label" type="category" tickLine={false} axisLine={false} width={92} tick={{ fontSize: 12 }} /><XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} /><ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} /><Bar dataKey="count" radius={[0, 8, 8, 0]} onClick={(item) => { const row = item?.payload ?? item; if (row?.key) onFilter?.({ dimension: "subject", value: row.key, label: row.label }); }}>{subjects.map((item, index) => <Cell key={item.key} fill={subjectColors[index % subjectColors.length]} cursor="pointer" />)}</Bar></BarChart></ChartContainer> : <EmptyChart message="أضف أسئلة إلى البنك لتظهر مقارنة المواد هنا." />}</CardContent></Card>
 
-      <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><PieChartIcon className="h-5 w-5 text-primary" />مستوى الصعوبة</CardTitle><CardDescription>نسبة توزيع الأسئلة حسب صعوبتها.</CardDescription></CardHeader><CardContent>{difficulties.length ? <ChartContainer config={difficultyConfig} className="h-64 w-full aspect-auto"><PieChart><ChartTooltip content={<ChartTooltipContent hideLabel />} /><Pie data={difficulties} dataKey="count" nameKey="label" innerRadius={55} outerRadius={82} paddingAngle={4}>{difficulties.map((item, index) => <Cell key={item.key} fill={difficultyColors[index % difficultyColors.length]} />)}</Pie><ChartLegend content={<ChartLegendContent nameKey="label" />} /></PieChart></ChartContainer> : <EmptyChart message="لا توجد بيانات صعوبة كافية للعرض." />}</CardContent></Card>
+      <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><PieChartIcon className="h-5 w-5 text-primary" />مستوى الصعوبة</CardTitle><CardDescription>نسبة توزيع الأسئلة حسب صعوبتها. انقر على أي جزء لتصفية القائمة.</CardDescription></CardHeader><CardContent>{difficulties.length ? <ChartContainer config={difficultyConfig} className="h-64 w-full aspect-auto"><PieChart><ChartTooltip content={<ChartTooltipContent hideLabel />} /><Pie data={difficulties} dataKey="count" nameKey="label" innerRadius={55} outerRadius={82} paddingAngle={4} onClick={(item) => { const row = item?.payload ?? item; if (row?.key) onFilter?.({ dimension: "difficulty", value: row.key, label: row.label }); }}>{difficulties.map((item, index) => <Cell key={item.key} fill={difficultyColors[index % difficultyColors.length]} cursor="pointer" />)}</Pie><ChartLegend content={<ChartLegendContent nameKey="label" />} /></PieChart></ChartContainer> : <EmptyChart message="لا توجد بيانات صعوبة كافية للعرض." />}</CardContent></Card>
     </div>
 
-    <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><ListChecks className="h-5 w-5 text-primary" />نوع التقييم</CardTitle><CardDescription>مقارنة مباشرة بين صيغ الأسئلة المستخدمة.</CardDescription></CardHeader><CardContent>{types.length ? <ChartContainer config={typeConfig} className="h-64 w-full aspect-auto"><BarChart accessibilityLayer data={types} margin={{ left: 8, right: 8, top: 12, bottom: 8 }}><CartesianGrid vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} interval={0} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} /><ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} /><Bar dataKey="count" radius={[8, 8, 0, 0]}>{types.map((item, index) => <Cell key={item.key} fill={typeColors[index % typeColors.length]} />)}</Bar></BarChart></ChartContainer> : <EmptyChart message="أضف أسئلة متنوعة لتظهر مقارنة أنواع التقييم هنا." />}</CardContent></Card>
+    <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><ListChecks className="h-5 w-5 text-primary" />نوع التقييم</CardTitle><CardDescription>مقارنة مباشرة بين صيغ الأسئلة المستخدمة. انقر على أي شريط لتصفية القائمة.</CardDescription></CardHeader><CardContent>{types.length ? <ChartContainer config={typeConfig} className="h-64 w-full aspect-auto"><BarChart accessibilityLayer data={types} margin={{ left: 8, right: 8, top: 12, bottom: 8 }}><CartesianGrid vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} interval={0} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} /><ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} /><Bar dataKey="count" radius={[8, 8, 0, 0]} onClick={(item) => { const row = item?.payload ?? item; if (row?.key) onFilter?.({ dimension: "questionType", value: row.key, label: row.label }); }}>{types.map((item, index) => <Cell key={item.key} fill={typeColors[index % typeColors.length]} cursor="pointer" />)}</Bar></BarChart></ChartContainer> : <EmptyChart message="أضف أسئلة متنوعة لتظهر مقارنة أنواع التقييم هنا." />}</CardContent></Card>
 
     {stats.total > 0 && <p className="text-xs text-muted-foreground">أعلى مادة حالياً: <span className="font-bold text-foreground">{subjects.sort((a, b) => b.count - a.count)[0]?.label}</span> ({Math.round((Math.max(...subjects.map((item) => item.count), 0) / stats.total) * 100)}% من البنك).</p>}
   </section>;
