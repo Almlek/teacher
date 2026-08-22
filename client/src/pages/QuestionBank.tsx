@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import QuestionBankStats, { type QuestionBankChartFilter } from "@/components/QuestionBankStats";
-import { BarChart3, BookMarked, CheckCircle2, Filter, Image as ImageIcon, Loader2, Plus, Search, Sparkles, Trash2, Upload, X } from "lucide-react";
+import { BarChart3, BookMarked, CheckCircle2, Download, FileSpreadsheet, Filter, Image as ImageIcon, Loader2, Plus, Search, Sparkles, Trash2, Upload, X } from "lucide-react";
 import React, { useMemo, useState } from "react";
+import { downloadQuestionBankAsCsv, printQuestionBankAsPdf } from "@/lib/questionBankExport";
 import { toast } from "sonner";
 
 const questionTypeLabels: Record<string, string> = {
@@ -127,6 +128,27 @@ export default function QuestionBank() {
     if (activeChartFilter.dimension === "difficulty") setFilterDifficulty("all");
     if (activeChartFilter.dimension === "questionType") setFilterType("all");
     setActiveChartFilter(null);
+  };
+
+  const exportTitle = activeChartFilter ? `أسئلة-${activeChartFilter.label}` : "قائمة-الأسئلة";
+  const handleExportCsv = () => {
+    if (!filteredItems.length) {
+      toast.error("لا توجد أسئلة مطابقة لتصديرها");
+      return;
+    }
+    downloadQuestionBankAsCsv(filteredItems, exportTitle);
+    toast.success("تم تنزيل ملف CSV للقائمة المصفاة");
+  };
+  const handleExportPdf = () => {
+    if (!filteredItems.length) {
+      toast.error("لا توجد أسئلة مطابقة لتصديرها");
+      return;
+    }
+    try {
+      printQuestionBankAsPdf(filteredItems, exportTitle);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر فتح نافذة الطباعة");
+    }
   };
 
   const handleCreate = async () => {
@@ -320,7 +342,7 @@ export default function QuestionBank() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary" />البحث والتصفية</CardTitle><CardDescription>{filteredItems.length} سؤالاً متاحاً للإدراج في الاختبارات.</CardDescription></CardHeader>
+            <CardHeader className="gap-4"><div><CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary" />البحث والتصفية</CardTitle><CardDescription>{filteredItems.length} سؤالاً متاحاً للإدراج في الاختبارات.</CardDescription></div><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={handleExportPdf} disabled={searchQuery.isLoading || filteredItems.length === 0} className="gap-1.5"><Download className="h-4 w-4" />تصدير PDF</Button><Button variant="outline" size="sm" onClick={handleExportCsv} disabled={searchQuery.isLoading || filteredItems.length === 0} className="gap-1.5"><FileSpreadsheet className="h-4 w-4" />تصدير CSV</Button></div></CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
               <div className="relative sm:col-span-2 lg:col-span-1"><Search className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="pr-9" placeholder="ابحث في نص السؤال..." /></div>
               <Select value={filterSubject} onValueChange={setFilterSubject}><SelectTrigger aria-label="تصفية المادة"><SelectValue placeholder="كل المواد" /></SelectTrigger><SelectContent><SelectItem value="all">كل المواد</SelectItem>{subjects.map((subject) => <SelectItem key={subject} value={subject}>{subject}</SelectItem>)}</SelectContent></Select>

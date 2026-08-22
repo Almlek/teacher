@@ -80,6 +80,8 @@ describe("question bank UI", () => {
     expect(screen.getByText("حسب المادة")).toBeTruthy();
     expect(screen.getByText("مستوى الصعوبة")).toBeTruthy();
     expect(screen.getByText("نوع التقييم")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "تصدير PDF" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "تصدير CSV" })).toBeTruthy();
     expect(screen.getByText("الماء سائل.")).toBeTruthy();
     expect(screen.getByText("اشرح الكسور.")).toBeTruthy();
 
