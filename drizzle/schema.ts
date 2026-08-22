@@ -183,6 +183,8 @@ export const userSettings = mysqlTable("user_settings", {
   defaultModel: varchar("defaultModel", { length: 100 }).default("gemini-1.5-flash"),
   defaultSchool: varchar("defaultSchool", { length: 255 }),
   defaultTeacher: varchar("defaultTeacher", { length: 255 }),
+  pdfHeader: varchar("pdfHeader", { length: 500 }),
+  schoolLogoUrl: text("schoolLogoUrl"),
   defaultDirectorate: varchar("defaultDirectorate", { length: 255 }),
   defaultSubject: varchar("defaultSubject", { length: 255 }),
   aiProvider: varchar("aiProvider", { length: 50 }).default("gemini"),

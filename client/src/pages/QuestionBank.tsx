@@ -109,6 +109,7 @@ export default function QuestionBank() {
     difficulty: filterDifficulty === "all" ? undefined : filterDifficulty,
     tag: filterTag === "all" ? undefined : filterTag,
   }), [filterDifficulty, filterGrade, filterSubject, filterTag, filterType, search]);
+  const settingsQuery = trpc.settings.get.useQuery();
   const searchQuery = trpc.questionBank.search.useQuery(searchInput);
   const filteredItems = searchQuery.data || [];
 
@@ -145,7 +146,10 @@ export default function QuestionBank() {
       return;
     }
     try {
-      printQuestionBankAsPdf(filteredItems, exportTitle);
+      printQuestionBankAsPdf(filteredItems, exportTitle, window.open, {
+        header: settingsQuery.data?.pdfHeader || settingsQuery.data?.defaultSchool,
+        logoUrl: settingsQuery.data?.schoolLogoUrl,
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذر فتح نافذة الطباعة");
     }

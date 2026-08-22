@@ -29,6 +29,7 @@ vi.mock("@/lib/trpc", () => ({
   trpc: {
     useUtils: () => ({ questionBank: { list: { invalidate: vi.fn() }, search: { invalidate: vi.fn() }, stats: { invalidate: vi.fn() } } }),
     exams: { list: { useQuery: () => ({ data: mocks.exams, isLoading: false }) } },
+    settings: { get: { useQuery: () => ({ data: { pdfHeader: "", schoolLogoUrl: null }, isLoading: false }) } },
     questionBank: {
       list: { useQuery: () => ({ data: mocks.list, isLoading: false }) },
       search: { useQuery: (input: { query?: string; tag?: string }) => {

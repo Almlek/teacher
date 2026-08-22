@@ -29,12 +29,15 @@ describe("question bank exports", () => {
   });
 
   it("builds an RTL print document containing the filtered question and image", () => {
-    const html = buildQuestionBankPrintDocument(items, "أسئلة العلوم");
+    const html = buildQuestionBankPrintDocument(items, "أسئلة العلوم", { header: "وزارة التربية — مدرسة النور", logoUrl: "/manus-storage/school-logo.png" });
     expect(html).toContain('dir="rtl"');
     expect(html).toContain("أسئلة العلوم");
     expect(html).toContain("ما دورة الماء؟");
     expect(html).toContain("water.png");
     expect(html).toContain("عدد الأسئلة: 1");
+    expect(html).toContain("وزارة التربية — مدرسة النور");
+    expect(html).toContain("school-logo.png");
+    expect(html).toContain("شعار المدرسة");
   });
 
   it("opens the print window and triggers printing after load", () => {

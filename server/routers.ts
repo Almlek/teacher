@@ -631,6 +631,22 @@ export const appRouter = router({
         const { userId, ...settingsData } = input;
         return upsertUserSettings(ctx.user.id, settingsData as any);
       }),
+
+    logoUpload: publicProcedure
+      .input(z.object({
+        fileName: z.string().min(1).max(255),
+        fileType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+        fileData: z.string().min(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        const data = decodeAndValidateLibraryFile(input.fileData, input.fileType);
+        if (data.length > 5 * 1024 * 1024) throw new Error("يجب ألا يتجاوز حجم الشعار 5 ميجابايت");
+        const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-120) || "school-logo";
+        const uploaded = await storagePut(`${ctx.user.id}-school-branding/${Date.now()}-${safeName}`, data, input.fileType);
+        await upsertUserSettings(ctx.user.id, { schoolLogoUrl: uploaded.url });
+        return { url: uploaded.url, key: uploaded.key };
+      }),
   }),
 });
 

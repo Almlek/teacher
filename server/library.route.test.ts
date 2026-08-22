@@ -16,7 +16,7 @@ vi.mock("./db", () => ({
 vi.mock("./lessonGenerator", () => ({ generateLessonPlan: vi.fn() }));
 
 const { appRouter } = await import("./routers");
-const { addLibraryBook } = await import("./db");
+const { addLibraryBook, upsertUserSettings } = await import("./db");
 const { storagePut } = await import("./storage");
 
 function createCaller() {
@@ -74,5 +74,19 @@ describe("library.upload route", () => {
       fileData: Buffer.from("%PDF-1.7 lesson").toString("base64"),
     })).rejects.toThrow("storage unavailable");
     expect(addLibraryBook).not.toHaveBeenCalled();
+  });
+});
+
+describe("settings.logoUpload route", () => {
+  it("uploads a valid PNG and saves the logo URL", async () => {
+    vi.mocked(storagePut).mockResolvedValueOnce({ key: "22-school-branding/logo.png", url: "/manus-storage/22-school-branding/logo.png" });
+    const pngHeader = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    const result = await createCaller().settings.logoUpload({
+      fileName: "school-logo.png",
+      fileType: "image/png",
+      fileData: pngHeader.toString("base64"),
+    });
+    expect(result.url).toBe("/manus-storage/22-school-branding/logo.png");
+    expect(upsertUserSettings).toHaveBeenCalledWith(22, { schoolLogoUrl: result.url });
   });
 });

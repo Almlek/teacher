@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { Loader2, LogOut } from "lucide-react";
+import { ImagePlus, Loader2, LogOut, X } from "lucide-react";
 import PublicNav from "@/components/PublicNav";
 import LoadingState from "@/components/LoadingState";
 import { useLocation } from "wouter";
@@ -31,6 +31,14 @@ export default function Settings() {
     },
   });
 
+  const logoUploadMutation = trpc.settings.logoUpload.useMutation({
+    onSuccess: (result) => {
+      setFormData((previous) => ({ ...previous, schoolLogoUrl: result.url }));
+      toast.success("تم رفع شعار المدرسة؛ اضغط حفظ الإعدادات لاعتماده");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
   const [formData, setFormData] = useState({
     theme: "purple",
     fontSize: "medium",
@@ -39,6 +47,8 @@ export default function Settings() {
     defaultModel: "gemini-1.5-flash",
     defaultSchool: "",
     defaultTeacher: "",
+    pdfHeader: "",
+    schoolLogoUrl: "",
     defaultDirectorate: "",
     defaultSubject: "",
     aiProvider: "gemini",
@@ -57,6 +67,8 @@ export default function Settings() {
         defaultModel: settingsQuery.data.defaultModel || "gemini-1.5-flash",
         defaultSchool: settingsQuery.data.defaultSchool || "",
         defaultTeacher: settingsQuery.data.defaultTeacher || "",
+        pdfHeader: settingsQuery.data.pdfHeader || "",
+        schoolLogoUrl: settingsQuery.data.schoolLogoUrl || "",
         defaultDirectorate: settingsQuery.data.defaultDirectorate || "",
         defaultSubject: settingsQuery.data.defaultSubject || "",
         aiProvider: settingsQuery.data.aiProvider || "gemini",
@@ -96,6 +108,29 @@ export default function Settings() {
       console.error(error);
     }
   };
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const allowed = ["image/png", "image/jpeg", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      toast.error("ارفع شعاراً بصيغة PNG أو JPG أو WEBP");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("يجب ألا يتجاوز حجم الشعار 5 ميجابايت");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result.split(",")[1] : "";
+      if (result) logoUploadMutation.mutate({ fileName: file.name, fileType: file.type as "image/png" | "image/jpeg" | "image/webp", fileData: result });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => setFormData((previous) => ({ ...previous, schoolLogoUrl: "" }));
 
   const handleLogout = async () => {
     try {
@@ -263,6 +298,28 @@ export default function Settings() {
 
           <Card>
             <CardHeader>
+              <CardTitle>ترويسة المستندات الرسمية</CardTitle>
+              <CardDescription>تظهر الترويسة والشعار أعلى ملفات PDF المصدرة من الاختبارات وقائمة الأسئلة.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="pdfHeader">نص الترويسة</Label>
+                <Textarea id="pdfHeader" name="pdfHeader" value={formData.pdfHeader} onChange={handleChange} rows={2} placeholder="وزارة التربية والتعليم — اسم المدرسة — العام الدراسي" />
+                <p className="text-xs text-muted-foreground">يمكن كتابة أكثر من معلومة في سطر واحد أو سطرين لتظهر بشكل رسمي أعلى الصفحة.</p>
+              </div>
+              <div className="space-y-3">
+                <Label htmlFor="schoolLogo">شعار المدرسة</Label>
+                <div className="flex flex-wrap items-center gap-4 rounded-xl border border-dashed p-4">
+                  {formData.schoolLogoUrl ? <div className="flex items-center gap-3"><img src={formData.schoolLogoUrl} alt="معاينة شعار المدرسة" className="h-16 w-16 rounded-lg border object-contain p-1" /><Button type="button" variant="ghost" size="sm" onClick={handleRemoveLogo} className="gap-1.5 text-destructive"><X className="h-4 w-4" />إزالة الشعار</Button></div> : <div className="flex items-center gap-2 text-sm text-muted-foreground"><ImagePlus className="h-5 w-5" />لم يتم رفع شعار بعد</div>}
+                  <Input id="schoolLogo" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoUpload} disabled={logoUploadMutation.isPending} className="max-w-sm" />
+                </div>
+                <p className="text-xs text-muted-foreground">الصيغ المدعومة: PNG وJPG وWEBP، بحد أقصى 5 ميجابايت.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>إعدادات الذكاء الاصطناعي والاختبارات</CardTitle>
               <CardDescription>حدد محرك التوليد والقيم الافتراضية لوحدة الاختبارات</CardDescription>
             </CardHeader>
@@ -330,6 +387,8 @@ export default function Settings() {
                     defaultModel: settingsQuery.data.defaultModel || "gemini-1.5-flash",
                     defaultSchool: settingsQuery.data.defaultSchool || "",
                     defaultTeacher: settingsQuery.data.defaultTeacher || "",
+                    pdfHeader: settingsQuery.data.pdfHeader || "",
+                    schoolLogoUrl: settingsQuery.data.schoolLogoUrl || "",
                     defaultDirectorate: settingsQuery.data.defaultDirectorate || "",
                     defaultSubject: settingsQuery.data.defaultSubject || "",
                     aiProvider: settingsQuery.data.aiProvider || "gemini",
