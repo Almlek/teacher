@@ -108,6 +108,18 @@ temp/
 
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
+.manus/
+.manus-logs/
+
+# Android local machine and build artifacts
+android/local.properties
+android/.gradle/
+android/**/build/
+android/**/captures/
+*.apk
+*.aab
+*.jks
+*.keystore
 
 # Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json
