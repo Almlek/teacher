@@ -1,0 +1,42 @@
+name: Continuous Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Trigger production deployment
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
+    steps:
+      - name: Skip deployment when no hook is configured
+        if: env.DEPLOY_HOOK_URL == ''
+        run: echo "DEPLOY_HOOK_URL is not configured; no deployment was triggered."
+
+      - name: Trigger hosting deploy hook
+        if: env.DEPLOY_HOOK_URL != ''
+        run: |
+          set -eu
+          curl --fail --silent --show-error --location \
+            --retry 3 \
+            --max-time 120 \
+            -X POST \
+            "$DEPLOY_HOOK_URL"
+          echo "Deployment hook accepted by the hosting provider."

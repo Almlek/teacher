@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PNPM_VERSION: 10.4.1
+  NODE_VERSION: 22
+
+jobs:
+  quality:
+    name: Type check, test, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL || secrets.DATABASE_URL }}
+      JWT_SECRET: ${{ secrets.TEST_JWT_SECRET || secrets.JWT_SECRET }}
+      VITE_APP_ID: ${{ secrets.VITE_APP_ID }}
+      OAUTH_SERVER_URL: ${{ secrets.OAUTH_SERVER_URL }}
+      VITE_OAUTH_PORTAL_URL: ${{ secrets.VITE_OAUTH_PORTAL_URL }}
+      OWNER_OPEN_ID: ${{ secrets.OWNER_OPEN_ID }}
+      OWNER_NAME: ${{ secrets.OWNER_NAME }}
+      BUILT_IN_FORGE_API_URL: ${{ secrets.BUILT_IN_FORGE_API_URL }}
+      BUILT_IN_FORGE_API_KEY: ${{ secrets.BUILT_IN_FORGE_API_KEY }}
+      VITE_FRONTEND_FORGE_API_URL: ${{ secrets.VITE_FRONTEND_FORGE_API_URL }}
+      VITE_FRONTEND_FORGE_API_KEY: ${{ secrets.VITE_FRONTEND_FORGE_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify CI configuration
+        run: |
+          set -eu
+          for key in DATABASE_URL JWT_SECRET BUILT_IN_FORGE_API_URL BUILT_IN_FORGE_API_KEY; do
+            eval "value=\${$key:-}"
+            if [ -z "$value" ]; then
+              echo "Missing required GitHub Actions secret: $key"
+              exit 1
+            fi
+          done
+
+      - name: Type check
+        run: pnpm check
+
+      - name: Run tests
+        run: pnpm exec vitest run --testTimeout=120000
+
+      - name: Build production bundle
+        run: pnpm build
+
+      - name: Upload production bundle
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-teacher-dist-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
